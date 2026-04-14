@@ -24,7 +24,7 @@ class CampusApp extends StatelessWidget {
       title: 'Lumina App',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedCoflulor: const Color(0xFF005A9C),
+          seedColor: const Color(0xFF005A9C),
         ),
         useMaterial3: true,
         appBarTheme: const AppBarTheme(

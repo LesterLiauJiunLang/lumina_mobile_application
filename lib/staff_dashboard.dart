@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'staff_create_quiz.dart';
 import 'all_score_quiz_screen.dart';
 import 'staff_view_all_quiz.dart';
+import 'timetable_screen.dart';
 
 class StaffDashboard extends StatelessWidget {
   const StaffDashboard({super.key});
@@ -53,6 +54,22 @@ class StaffDashboard extends StatelessWidget {
                   );
                 },
                 child: const Text("Check Results"),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TimetableScreen(),
+                    ),
+                  );
+                },
+                child: const Text("Timetable"),
               ),
             ),
           ],
