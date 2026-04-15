@@ -81,7 +81,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     Icons.help_center_outlined,
                     const Color(0xFFFFF8E1),
                     Colors.amber[800]!,
-                    '/quizzes',
+                    '/student_dashboard_quiz',
                   ),
 
                   // 5. Results

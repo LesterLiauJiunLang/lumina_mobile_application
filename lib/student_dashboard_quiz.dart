@@ -2,10 +2,10 @@
   import 'student_quiz_list.dart';
   import 'all_score_quiz_screen.dart';
 
-  class StudentDashboard extends StatelessWidget {
+  class StudentDashboardQuiz extends StatelessWidget {
     final String studentId = "S001";
 
-    const StudentDashboard({super.key});
+    const StudentDashboardQuiz({super.key});
 
     @override
     Widget build(BuildContext context) {

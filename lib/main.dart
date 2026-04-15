@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:lumina_mobile_application/staff_create_quiz.dart';
+import 'package:lumina_mobile_application/staff_dashboard_quiz.dart';
+import 'package:lumina_mobile_application/staff_view_all_quiz.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:developer';
+import 'all_score_quiz_screen.dart';
 import 'model/student.dart';
 import 'home.dart';
 import 'login.dart';
@@ -10,6 +14,9 @@ import 'register_student.dart';
 import 'student_dashboard.dart';
 import 'staff_dashboard.dart';
 import 'staff_profile.dart';
+import 'student_dashboard_quiz.dart';
+
+
 const String supabaseUrl='https://ipclprhdqqxczshihwot.supabase.co';
 const String supabaseKey='sb_secret_eDCpEf5_rrI_1aKoTGidNw_lxN5Z82s';
 
@@ -48,6 +55,11 @@ class CampusApp extends StatelessWidget {
         '/profile': (context) => const ProfilePage(),
         '/staff_dashboard': (context) => const StaffDashboard(),
         '/staff_profile': (context) => const StaffProfilePage(),
+        '/student_dashboard_quiz' : (context) => const StudentDashboardQuiz(),
+        '/staff_dashboard_quiz' : (context) => const StaffDashboardQuiz(),
+        '/create_quiz': (context) => const StaffCreateQuizScreen(),
+        '/view_all_quiz': (context) => const StaffViewAllQuizScreen(),
+        '/quiz_results': (context) => const AllScoreQuizScreen(),
       },
     );
   }

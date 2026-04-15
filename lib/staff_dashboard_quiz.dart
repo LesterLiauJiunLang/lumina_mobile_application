@@ -3,8 +3,8 @@ import 'staff_create_quiz.dart';
 import 'all_score_quiz_screen.dart';
 import 'staff_view_all_quiz.dart';
 
-class StaffDashboard extends StatelessWidget {
-  const StaffDashboard({super.key});
+class StaffDashboardQuiz extends StatelessWidget {
+  const StaffDashboardQuiz({super.key});
 
   @override
   Widget build(BuildContext context) {

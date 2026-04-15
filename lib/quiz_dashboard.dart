@@ -27,7 +27,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const StaffDashboard()),
+                    MaterialPageRoute(builder: (_) => const StaffDashboardQuiz()),
                   );
                 },
                 child: const Text("Staff Quiz"),
@@ -42,7 +42,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const StudentDashboard()),
+                    MaterialPageRoute(builder: (_) => const StudentDashboardQuiz()),
                   );
                 },
                 child: const Text("Student Quiz"),
