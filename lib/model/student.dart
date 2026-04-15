@@ -30,7 +30,7 @@ class Student {
     this.password,
     this.name,
   });
-
+  //Student
   // Maps Supabase columns to Student object fields
   factory Student.fromJson(Map<String, dynamic> json) {
     return Student(
