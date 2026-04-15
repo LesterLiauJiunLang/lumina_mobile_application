@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'staff_dashboard.dart';
-import 'student_dashboard.dart';
+import 'staff_dashboard_quiz.dart';
+import 'student_dashboard_quiz.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
