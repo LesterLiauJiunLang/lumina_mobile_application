@@ -1,0 +1,81 @@
+-- Insert a Superadmin
+INSERT INTO public."Staff" (
+  "ID",
+  "Name",
+  "Password",
+  "Email",
+  "JobTitle",
+  "Faculty",
+  "Campus",
+  "JoinedDate"
+) VALUES (
+  'SU001',
+  'Administrator One',
+  'admin123',
+  'admin@lumina.edu.my',
+  'Superadmin',
+  'Management',
+  'Main Campus',
+  NOW()
+);
+
+-- Insert a Normal Staff (Lecturer)
+INSERT INTO public."Staff" (
+  "ID",
+  "Name",
+  "Password",
+  "Email",
+  "JobTitle",
+  "Faculty",
+  "Campus",
+  "JoinedDate"
+) VALUES (
+  'S001',
+  'Dr. Sarah Lim',
+  'staff123',
+  'sarah@lumina.edu.my',
+  'Lecturer',
+  'Faculty of Computing',
+  'Kuala Lumpur Campus',
+  NOW()
+-- Insert a Superadmin
+INSERT INTO public."Staff" (
+  "ID",
+  "Name",
+  "Password",
+  "Email",
+  "JobTitle",
+  "Faculty",
+  "Campus",
+  "JoinedDate"
+) VALUES (
+  'SU001',
+  'Administrator One',
+  'admin123',
+  'admin@lumina.edu.my',
+  'Superadmin',
+  'Management',
+  'Main Campus',
+  NOW()
+);
+
+-- Insert a Normal Staff (Lecturer)
+INSERT INTO public."Staff" (
+  "ID",
+  "Name",
+  "Password",
+  "Email",
+  "JobTitle",
+  "Faculty",
+  "Campus",
+  "JoinedDate"
+) VALUES (
+  'S001',
+  'Dr. Sarah Lim',
+  'staff123',
+  'sarah@lumina.edu.my',
+  'Lecturer',
+  'Faculty of Computing',
+  'Kuala Lumpur Campus',
+  NOW()
+);
