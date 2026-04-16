@@ -20,10 +20,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
   List<Map<String, dynamic>> _todayRegisteredClasses = [];
   String? _studentId;
   
-  // Custom theme color
   final Color _mainBlue = const Color(0xFF005A9C);
-  
-  // Register Tab state
   final TextEditingController _tokenController = TextEditingController();
   bool _isScannerLoading = false;
 
@@ -59,15 +56,12 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
           .eq('Student_ID', _studentId!);
 
       List<Map<String, dynamic>> overview = [];
-      final Set<String> processedCourseIds = {}; // Fix: Track unique courses
+      final Set<String> processedCourseIds = {};
 
       for (var item in (enrollmentData as List)) {
         final course = item['Course'];
         if (course == null) continue;
-        
         final courseId = course['ID'];
-        
-        // Fix: Skip if course is already processed
         if (processedCourseIds.contains(courseId)) continue;
         processedCourseIds.add(courseId);
 
@@ -101,16 +95,12 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
         });
       }
       _courseAttendance = overview;
-    } catch (e) {
-      debugPrint('Error overview: $e');
-    }
+    } catch (e) { debugPrint('Error overview: $e'); }
   }
 
   Future<void> _fetchTodayRegistered() async {
     try {
       final todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      
-      // LOGICAL FIX: Only show sessions that are actually scheduled for TODAY'S DATE
       final data = await supabase
           .from('AttendanceRecord')
           .select('*, Session:Session_ID!inner(ID, Date, Course:Course_ID(Name), Schedule:Schedule_ID(StartTime, EndTime, ClassType))')
@@ -124,66 +114,68 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
           'course': session['Course']?['Name'] ?? 'Unknown',
           'type': session['Schedule']?['ClassType'] ?? 'N/A',
           'time': '${session['Schedule']?['StartTime'] ?? ""} - ${session['Schedule']?['EndTime'] ?? ""}',
-          'markedAt': r['MarkedAt'],
         };
       }).toList();
-    } catch (e) {
-      debugPrint('Error today logic: $e');
-    }
+    } catch (e) { debugPrint('Error today logic: $e'); }
+  }
+
+  void _showStatusSnackbar(String message, bool isSuccess) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        content: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: isSuccess ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(isSuccess ? Icons.check_circle : Icons.error_outline, color: Colors.white, size: 24),
+              const SizedBox(width: 12),
+              Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _submitToken(String token) async {
     if (token.isEmpty) return;
     setState(() => _isScannerLoading = true);
     try {
-      final sessionData = await supabase
-          .from('AttendanceSession')
-          .select('ID, Date, Course_ID, Course(Name), Schedule:Schedule_ID(StartTime, EndTime)')
-          .eq('QR_Token', token)
-          .maybeSingle();
+      final sessionData = await supabase.from('AttendanceSession').select('ID, Date, Course_ID, Course(Name), Schedule:Schedule_ID(StartTime, EndTime)').eq('QR_Token', token).maybeSingle();
+      if (sessionData == null) throw 'Invalid Token';
 
-      if (sessionData == null) throw 'Invalid QR Code or Token.';
-
-      final enrollmentData = await supabase
-          .from('Enrollment')
-          .select('ID')
-          .eq('Course_ID', sessionData['Course_ID'])
-          .eq('Student_ID', _studentId!);
-
-      if ((enrollmentData as List).isEmpty) {
-        throw 'You are not enrolled in this course (${sessionData['Course']['Name']}).';
-      }
+      final enrollment = await supabase.from('Enrollment').select('ID').eq('Course_ID', sessionData['Course_ID']).eq('Student_ID', _studentId!);
+      if ((enrollment as List).isEmpty) throw 'Not Enrolled';
 
       final now = DateTime.now();
-      final todayStr = DateFormat('yyyy-MM-dd').format(now);
-      
-      if (sessionData['Date'] != todayStr) {
-        throw 'This session is scheduled for ${sessionData['Date']}, not today ($todayStr).';
-      }
+      if (sessionData['Date'] != DateFormat('yyyy-MM-dd').format(now)) throw 'Wrong Day';
 
       final schedule = sessionData['Schedule'];
       if (schedule != null) {
         final startTime = _parseTime(schedule['StartTime']);
         final endTime = _parseTime(schedule['EndTime']);
-        if (now.isBefore(startTime) || now.isAfter(endTime)) {
-          throw 'Attendance is only available during class time (${schedule['StartTime']} - ${schedule['EndTime']}).';
-        }
+        if (now.isBefore(startTime) || now.isAfter(endTime)) throw 'Class Over';
       }
 
-      await supabase.from('AttendanceRecord').upsert({
-        'Session_ID': sessionData['ID'],
-        'Student_ID': _studentId,
-        'Status': 'Present',
-        'MarkedAt': DateTime.now().toIso8601String(),
-      });
-
+      await supabase.from('AttendanceRecord').upsert({'Session_ID': sessionData['ID'], 'Student_ID': _studentId, 'Status': 'Present', 'MarkedAt': DateTime.now().toIso8601String()});
+      
       if (mounted) {
-        _showSuccessDialog(sessionData['Course']['Name']);
+        _showStatusSnackbar('Attendance Successful', true);
         _tokenController.clear();
         _fetchAllData();
       }
     } catch (e) {
-      if (mounted) _showErrorDialog(e.toString());
+      if (mounted) _showStatusSnackbar(e.toString(), false);
     } finally {
       if (mounted) setState(() => _isScannerLoading = false);
     }
@@ -195,14 +187,6 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
     return DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
   }
 
-  void _showErrorDialog(String message) {
-    showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Access Denied', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)), content: Text(message), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))]));
-  }
-
-  void _showSuccessDialog(String courseName) {
-    showDialog(context: context, builder: (context) => AlertDialog(title: const Row(children: [Icon(Icons.check_circle, color: Colors.green), SizedBox(width: 10), Text('Registration Successful')]), content: Text('Attendance recorded for $courseName.'), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))]));
-  }
-
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -210,47 +194,22 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
       initialIndex: 1,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Attendance'),
-          backgroundColor: _mainBlue,
-          foregroundColor: Colors.white,
-          bottom: const TabBar(
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
-            indicatorWeight: 3,
-            tabs: [
-              Tab(text: 'Today'),
-              Tab(text: 'Register'),
-              Tab(text: 'Overall'),
-            ],
-          ),
+          title: const Text('Attendance'), backgroundColor: _mainBlue, foregroundColor: Colors.white,
+          bottom: const TabBar(labelColor: Colors.white, unselectedLabelColor: Colors.white70, indicatorColor: Colors.white, indicatorWeight: 3, tabs: [Tab(text: 'Today'), Tab(text: 'Register'), Tab(text: 'Overall')]),
         ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : TabBarView(
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildTodayTab(),
-                  _buildRegisterTab(),
-                  _buildOverallTab(),
-                ],
-              ),
+        body: _isLoading ? const Center(child: CircularProgressIndicator()) : TabBarView(physics: const NeverScrollableScrollPhysics(), children: [_buildTodayTab(), _buildRegisterTab(), _buildOverallTab()]),
       ),
     );
   }
 
   Widget _buildTodayTab() {
-    if (_todayRegisteredClasses.isEmpty) {
-      return _buildEmptyState('No attendance recorded for today yet.\nUse the \'Register\' tab to mark your attendance!', icon: Icons.today);
-    }
+    if (_todayRegisteredClasses.isEmpty) return _buildEmptyState('No classes registered today.', icon: Icons.today);
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _todayRegisteredClasses.length,
+      padding: const EdgeInsets.all(16), itemCount: _todayRegisteredClasses.length,
       itemBuilder: (context, index) {
         final session = _todayRegisteredClasses[index];
         return Card(
-          elevation: 2,
-          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 2, margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
             leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.check, color: Colors.white)),
             title: Text(session['course'], style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -271,27 +230,16 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
           const SizedBox(height: 20),
           Center(
             child: Container(
-              width: 260, height: 260,
-              decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20), border: Border.all(color: _mainBlue, width: 3)),
+              width: 260, height: 260, decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20), border: Border.all(color: _mainBlue, width: 3)),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    MobileScanner(
-                      onDetect: (capture) {
-                        final List<Barcode> barcodes = capture.barcodes;
-                        for (final barcode in barcodes) {
-                          if (barcode.rawValue != null && !_isScannerLoading) {
-                            _submitToken(barcode.rawValue!);
-                            break;
-                          }
-                        }
-                      },
-                    ),
-                    const _ScanningLine(),
-                  ],
-                ),
+                child: Stack(alignment: Alignment.center, children: [
+                  MobileScanner(onDetect: (capture) {
+                    final List<Barcode> barcodes = capture.barcodes;
+                    for (final barcode in barcodes) { if (barcode.rawValue != null && !_isScannerLoading) { _submitToken(barcode.rawValue!); break; } }
+                  }),
+                  const _ScanningLine(),
+                ]),
               ),
             ),
           ),
@@ -299,10 +247,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
           const Text('OR ENTER TOKEN', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           TextField(
-            controller: _tokenController,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            maxLength: 10,
+            controller: _tokenController, keyboardType: TextInputType.number, textAlign: TextAlign.center, maxLength: 10,
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 4),
             decoration: InputDecoration(
               hintText: 'e.g. 123456', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), counterText: "",
@@ -316,46 +261,54 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
   }
 
   Widget _buildOverallTab() {
-    if (_courseAttendance.isEmpty) return _buildEmptyState('No enrolled courses found.');
+    if (_courseAttendance.isEmpty) return _buildEmptyState('No courses found.');
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _courseAttendance.length,
+      padding: const EdgeInsets.all(16), itemCount: _courseAttendance.length,
       itemBuilder: (context, index) {
         final data = _courseAttendance[index];
-        final double percentage = data['percentage'];
-        final bool isBarred = percentage < 80;
+        final double p = data['percentage'];
         return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          elevation: 3,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.only(bottom: 16), elevation: 3, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: InkWell(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => StudentSessionLogs(
-                  courseName: data['courseName'],
-                  courseId: data['courseId'],
-                  percentage: percentage,
-                  studentId: _studentId ?? '26WMR00009',
-                ),
-              ),
-            ),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => StudentSessionLogs(courseName: data['courseName'], courseId: data['courseId'], percentage: p, studentId: _studentId ?? '26WMR00009'))),
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  // Circular Progress Indicator instead of Linear
+                  Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Expanded(child: Text(data['courseName'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
-                      _buildPercentageChip(percentage),
+                      SizedBox(
+                        width: 60, height: 60,
+                        child: CircularProgressIndicator(
+                          value: p / 100,
+                          backgroundColor: Colors.grey.shade200,
+                          color: p < 80 ? Colors.red : Colors.green,
+                          strokeWidth: 6,
+                        ),
+                      ),
+                      Text('${p.toInt()}%', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: p < 80 ? Colors.red : Colors.green)),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  LinearProgressIndicator(value: percentage / 100, backgroundColor: Colors.grey.shade200, color: isBarred ? Colors.red : Colors.green, minHeight: 8, borderRadius: BorderRadius.circular(4)),
-                  const SizedBox(height: 10),
-                  Text('${data['attendedHours']} / ${data['totalHours']} hours attended', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                  const SizedBox(width: 20),
+                  // Course Info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(data['courseName'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text('${data['attendedHours']} / ${data['totalHours']} hours attended', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                        const SizedBox(height: 2),
+                        Text(
+                          p < 80 ? 'Status: Barred (Low)' : 'Status: Eligible',
+                          style: TextStyle(color: p < 80 ? Colors.red : Colors.green, fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
                 ],
               ),
             ),
@@ -366,28 +319,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
   }
 
   Widget _buildEmptyState(String message, {IconData icon = Icons.info_outline}) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 64, color: Colors.grey.shade300),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Text(message, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500, height: 1.5)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPercentageChip(double percentage) {
-    Color color = percentage >= 80 ? Colors.green : Colors.red;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: color)),
-      child: Text('${percentage.toStringAsFixed(1)}%', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
-    );
+    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 64, color: Colors.grey.shade300), const SizedBox(height: 16), Text(message, style: TextStyle(color: Colors.grey.shade500))]));
   }
 }
 
@@ -400,10 +332,7 @@ class _ScanningLine extends StatefulWidget {
 class _ScanningLineState extends State<_ScanningLine> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
-  }
+  void initState() { super.initState(); _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true); }
   @override
   void dispose() { _controller.dispose(); super.dispose(); }
   @override
@@ -411,7 +340,7 @@ class _ScanningLineState extends State<_ScanningLine> with SingleTickerProviderS
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        return Positioned(top: 40 + (_controller.value * 180), child: Container(width: 200, height: 2, decoration: BoxDecoration(color: Colors.greenAccent, boxShadow: [BoxShadow(color: Colors.greenAccent.withValues(alpha: 0.5), blurRadius: 10, spreadRadius: 2)])));
+        return Positioned(top: 40 + (_controller.value * 180), child: Container(width: 200, height: 2, decoration: BoxDecoration(color: Colors.greenAccent, boxShadow: [BoxShadow(color: Colors.greenAccent.withOpacity(0.5), blurRadius: 10, spreadRadius: 2)])));
       },
     );
   }
