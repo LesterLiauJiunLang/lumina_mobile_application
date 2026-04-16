@@ -138,4 +138,20 @@ class SupabaseService {
       rethrow;
     }
   }
+
+  // --- GET QUIZ DETAILS ---
+  static Future<Map<String, dynamic>?> getQuizById(String quizId) async {
+    try {
+      final res = await client
+          .from('quizzes')
+          .select()
+          .eq('id', quizId)
+          .maybeSingle();
+
+      return res;
+    } catch (e) {
+      print("Error fetching quiz: $e");
+      rethrow;
+    }
+  }
 }
