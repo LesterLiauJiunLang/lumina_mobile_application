@@ -15,6 +15,8 @@ import 'student_dashboard.dart';
 import 'staff_dashboard.dart';
 import 'staff_profile.dart';
 import 'student_dashboard_quiz.dart';
+import 'Attendance/attendance_history_screen.dart';
+import 'Attendance/student_attendance_scanner.dart';
 
 
 const String supabaseUrl='https://ipclprhdqqxczshihwot.supabase.co';
@@ -47,8 +49,7 @@ class CampusApp extends StatelessWidget {
         '/student_dashboard': (context) {
           // This part is critical to receive the data during navigation
           final student = ModalRoute.of(context)!.settings.arguments as Student;
-          return StudentDashboard();
-          // return StudentDashboard(student: student);
+          return const StudentDashboard();
         },
         '/view_user': (context) => const ViewUserPage(title: 'Student Management',),
         '/register_student': (context) => const RegisterStudentPage(),
@@ -60,6 +61,8 @@ class CampusApp extends StatelessWidget {
         '/create_quiz': (context) => const StaffCreateQuizScreen(),
         '/view_all_quiz': (context) => const StaffViewAllQuizScreen(),
         '/quiz_results': (context) => const AllScoreQuizScreen(),
+        '/attendance_history': (context) => const AttendanceHistoryScreen(isStaff: false),
+        '/attendance_scanner': (context) => const StudentAttendanceScanner(),
       },
     );
   }
@@ -99,7 +102,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
         child: Column(
 
-          mainAxisAlignment: .center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text('You have pushed the button this many times:'),
             Text(
