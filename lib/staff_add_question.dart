@@ -197,96 +197,261 @@ class _StaffAddQuestionScreenState extends State<StaffAddQuestionScreen> {
     }
   }
 
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: const Color(0xFFF5F7FA),
+      contentPadding:
+      const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final showBack = _questions.isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Questions')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.quizTitle,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text("Topic: ${widget.topic} • Duration: ${widget.duration} min"),
-              const SizedBox(height: 12),
-
-              TextFormField(
-                controller: _q,
-                decoration: const InputDecoration(labelText: "Question"),
-                validator: (value) =>
-                value == null || value.trim().isEmpty ? "Question cannot be empty" : null,
+      backgroundColor: const Color(0xFFF3F6F9),
+      body: Column(
+        children: [
+          // ===== HEADER =====
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 65, 20, 30),
+            decoration: const BoxDecoration(
+              color: Color(0xFF005A9C),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(40),
+                bottomRight: Radius.circular(40),
               ),
-
-              TextFormField(controller: _a, decoration: const InputDecoration(labelText: "Option A")),
-              TextFormField(controller: _b, decoration: const InputDecoration(labelText: "Option B")),
-              TextFormField(controller: _c, decoration: const InputDecoration(labelText: "Option C")),
-              TextFormField(controller: _d, decoration: const InputDecoration(labelText: "Option D")),
-
-              if (_optionsMsg != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    _optionsMsg!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withOpacity(0.25)),
                   ),
-                ),
-
-              const SizedBox(height: 8),
-
-              DropdownButton<String>(
-                value: _correct,
-                items: const [
-                  DropdownMenuItem(value: "A", child: Text("Correct: A")),
-                  DropdownMenuItem(value: "B", child: Text("Correct: B")),
-                  DropdownMenuItem(value: "C", child: Text("Correct: C")),
-                  DropdownMenuItem(value: "D", child: Text("Correct: D")),
-                ],
-                onChanged: (v) => setState(() => _correct = v ?? "A"),
-              ),
-
-              const SizedBox(height: 10),
-
-              Row(
-                children: [
-                  if (showBack) ...[
-                    OutlinedButton(
-                      onPressed: _goBackToPreviousQuestion,
-                      child: const Text("Back"),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                      size: 20,
                     ),
-                    const SizedBox(width: 10),
-                  ],
-                  OutlinedButton(
-                    onPressed: _addQuestion,
-                    child: const Text("Add Question"),
-                  ),
-                  const SizedBox(width: 10),
-                  FilledButton(
-                    onPressed: _questions.isEmpty ? null : _publish,
-                    child: const Text("Publish"),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-              Text("Added Questions: ${_questions.length}"),
-
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _questions.length,
-                  itemBuilder: (_, i) => ListTile(
-                    title: Text("Q${i + 1}: ${_questions[i]["q"]}"),
-                    subtitle: Text("Correct: ${_questions[i]["correct"]}"),
+                    onPressed: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      }
+                    },
                   ),
                 ),
-              ),
-            ],
+
+                const SizedBox(width: 12),
+
+                const CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.help_outline,
+                      size: 30, color: Color(0xFF005A9C)),
+                ),
+
+                const SizedBox(width: 15),
+
+                const Expanded(
+                  child: Text(
+                    "Add Questions",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+
+          // ===== CONTENT =====
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                // ===== QUIZ INFO CARD =====
+                Container(
+                  padding: const EdgeInsets.all(15),
+                  margin: const EdgeInsets.only(bottom: 15),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.quizTitle,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 4),
+                      Text("Topic: ${widget.topic}"),
+                      Text("Duration: ${widget.duration} min"),
+                    ],
+                  ),
+                ),
+
+                // ===== FORM CARD =====
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _q,
+                          decoration: _inputDecoration("Question"),
+                          validator: (value) =>
+                          value == null || value.trim().isEmpty
+                              ? "Question cannot be empty"
+                              : null,
+                        ),
+
+                        const SizedBox(height: 15),
+
+                        TextFormField(controller: _a, decoration: _inputDecoration("Option A")),
+                        const SizedBox(height: 10),
+                        TextFormField(controller: _b, decoration: _inputDecoration("Option B")),
+                        const SizedBox(height: 10),
+                        TextFormField(controller: _c, decoration: _inputDecoration("Option C")),
+                        const SizedBox(height: 10),
+                        TextFormField(controller: _d, decoration: _inputDecoration("Option D")),
+
+                        if (_optionsMsg != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              _optionsMsg!,
+                              style: const TextStyle(
+                                  color: Colors.red, fontSize: 12),
+                            ),
+                          ),
+
+                        const SizedBox(height: 10),
+
+                        DropdownButtonFormField<String>(
+                          value: _correct,
+                          decoration: _inputDecoration("Correct Answer"),
+                          items: const [
+                            DropdownMenuItem(value: "A", child: Text("A")),
+                            DropdownMenuItem(value: "B", child: Text("B")),
+                            DropdownMenuItem(value: "C", child: Text("C")),
+                            DropdownMenuItem(value: "D", child: Text("D")),
+                          ],
+                          onChanged: (v) => setState(() => _correct = v ?? "A"),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // ===== BUTTONS =====
+                        Row(
+                          children: [
+                            if (showBack) ...[
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _goBackToPreviousQuestion,
+                                  child: const Text("Back"),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                            ],
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _addQuestion,
+                                child: const Text("Add"),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF005A9C),
+                                ),
+                                onPressed:
+                                _questions.isEmpty ? null : _publish,
+                                child: const Text("Publish",
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                  ),
+                                )
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 15),
+
+                // ===== QUESTION LIST =====
+                Text(
+                  "Added Questions (${_questions.length})",
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+
+                const SizedBox(height: 10),
+
+                ..._questions.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final q = entry.value;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text("Q${i + 1}: ${q["q"]}"),
+                      subtitle: Text("Correct: ${q["correct"]}"),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
