@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'qr_code_display.dart';
 import 'manual_attendance.dart';
 import 'course_session_history.dart';
+import '../model/staff.dart';
 
 class StaffAttendanceDashboard extends StatefulWidget {
   const StaffAttendanceDashboard({super.key});
@@ -15,31 +16,59 @@ class StaffAttendanceDashboard extends StatefulWidget {
 class _StaffAttendanceDashboardState extends State<StaffAttendanceDashboard> {
   final supabase = Supabase.instance.client;
   bool _isLoading = true;
-  List<Map<String, dynamic>> _todayClasses = [];
+  List<Map<String, dynamic>> _todaySessions = [];
+  List<Map<String, dynamic>> _allMyCourses = [];
+  String? _staffId;
+  
+  final Color _mainBlue = const Color(0xFF005A9C);
 
   @override
-  void initState() {
-    super.initState();
-    _fetchTodayClasses();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Staff) {
+      _staffId = args.id;
+    } else {
+      _staffId = 'S001'; 
+    }
+    _fetchDashboardData();
   }
 
-  Future<void> _fetchTodayClasses() async {
+  Future<void> _fetchDashboardData() async {
+    setState(() => _isLoading = true);
+    await Future.wait([
+      _fetchTodaySessions(),
+      _fetchAllCourses(),
+    ]);
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _fetchTodaySessions() async {
     try {
       final now = DateTime.now();
-      final dayName = DateFormat('EEEE').format(now);
+      final dayName = DateFormat('EEEE').format(now).toUpperCase();
 
       final data = await supabase
-          .from('Course')
-          .select('*, Schedule!inner(*)')
-          .eq('Schedule.DayOfWeek', dayName);
+          .from('Schedule')
+          .select('*, Course!inner(*)')
+          .eq('DayOfWeek', dayName)
+          .eq('Course.Staff_ID', _staffId!);
 
-      setState(() {
-        _todayClasses = List<Map<String, dynamic>>.from(data);
-        _isLoading = false;
-      });
+      _todaySessions = List<Map<String, dynamic>>.from(data);
     } catch (e) {
-      debugPrint('Error fetching classes: $e');
-      setState(() => _isLoading = false);
+      debugPrint('Error today sessions: $e');
+    }
+  }
+
+  Future<void> _fetchAllCourses() async {
+    try {
+      final data = await supabase
+          .from('Course')
+          .select('*')
+          .eq('Staff_ID', _staffId!);
+      _allMyCourses = List<Map<String, dynamic>>.from(data);
+    } catch (e) {
+      debugPrint('Error all courses: $e');
     }
   }
 
@@ -47,12 +76,9 @@ class _StaffAttendanceDashboardState extends State<StaffAttendanceDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Attendance Dashboard'),
-        backgroundColor: Colors.indigo,
+        title: const Text('Attendance Management'),
+        backgroundColor: _mainBlue,
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchTodayClasses),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -61,16 +87,20 @@ class _StaffAttendanceDashboardState extends State<StaffAttendanceDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Today's Classes", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo)),
+            Text("Today's Sessions", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _mainBlue)),
             const SizedBox(height: 12),
-            _todayClasses.isEmpty
+            _todaySessions.isEmpty
                 ? const Card(child: ListTile(title: Text('No classes scheduled for today.'), leading: Icon(Icons.info_outline)))
                 : Column(
-              children: _todayClasses.map((classData) {
-                final schedule = classData['Schedule'];
+              children: _todaySessions.map((sessionData) {
+                // SAFETY CHECK: If Course is returned as a list, take the first item
+                final courseRaw = sessionData['Course'];
+                final Map<String, dynamic> course = (courseRaw is List) ? courseRaw.first : courseRaw;
+
                 return Card(
                   margin: const EdgeInsets.only(bottom: 16),
                   elevation: 4,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -79,40 +109,36 @@ class _StaffAttendanceDashboardState extends State<StaffAttendanceDashboard> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(classData['Name'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                Text('${schedule['ClassType']} (${schedule['DurationHours']}h)',
-                                    style: TextStyle(color: Colors.indigo.shade400, fontSize: 13, fontWeight: FontWeight.w600)),
-                              ],
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(course['Name'] ?? 'Unknown Course', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                  Text('${sessionData['ClassType']} • ${sessionData['DurationHours']} Hours',
+                                      style: TextStyle(color: _mainBlue, fontSize: 13, fontWeight: FontWeight.w600)),
+                                ],
+                              ),
                             ),
-                            Text('${schedule['StartTime']} - ${schedule['EndTime']}', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                            Text('${sessionData['StartTime']} - ${sessionData['EndTime']}', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
                           ],
                         ),
-                        const Divider(height: 24),
+                        const Divider(height: 30),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            _buildActionButton(context, Icons.qr_code, 'QR Code', () {
+                            _buildClassAction(Icons.qr_code, 'Display QR', () {
                               Navigator.push(context, MaterialPageRoute(builder: (context) => QRCodeDisplay(
-                                courseName: classData['Name'],
-                                courseId: classData['ID'],
-                                staffId: classData['Staff_ID'],
-                                section: "Section 1",
-                                sendToEmail: false,
+                                courseName: course['Name'], courseId: course['ID'], staffId: _staffId, section: "1", sendToEmail: false,
                               )));
                             }),
-                            _buildActionButton(context, Icons.history, 'Sessions', () {
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => CourseSessionsHistory(
-                                courseId: classData['ID'],
-                                courseName: classData['Name'],
+                            _buildClassAction(Icons.email_outlined, 'Email QR', () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => QRCodeDisplay(
+                                courseName: course['Name'], courseId: course['ID'], staffId: _staffId, section: "1", sendToEmail: true,
                               )));
-                            }, color: Colors.blue.shade700),
-                            _buildActionButton(context, Icons.edit_note, 'Today', () {
+                            }),
+                            _buildClassAction(Icons.edit_calendar, 'Manual', () {
                               Navigator.push(context, MaterialPageRoute(builder: (context) => ManualAttendanceSheet(
-                                sessionName: '${classData['Name']} (${schedule['ClassType']})',
-                                courseId: classData['ID'],
+                                sessionName: '${course['Name']} (${sessionData['ClassType']})', courseId: course['ID'],
                               )));
                             }),
                           ],
@@ -123,47 +149,44 @@ class _StaffAttendanceDashboardState extends State<StaffAttendanceDashboard> {
                 );
               }).toList(),
             ),
-            const SizedBox(height: 24),
-            const Text("All My Courses", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo)),
+            
+            const SizedBox(height: 30),
+            Text("All My Courses", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _mainBlue)),
             const SizedBox(height: 12),
-            FutureBuilder(
-              future: supabase.from('Course').select('*'),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                final courses = snapshot.data as List;
-                return Column(
-                  children: courses.map((course) => Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.book, color: Colors.indigo),
-                      title: Text(course['Name']),
-                      subtitle: Text('ID: ${course['ID']}'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => CourseSessionsHistory(
-                          courseId: course['ID'],
-                          courseName: course['Name'],
-                        )));
-                      },
-                    ),
-                  )).toList(),
-                );
-              },
-            ),
+            ..._allMyCourses.map((course) => Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: CircleAvatar(backgroundColor: _mainBlue.withOpacity(0.1), child: Icon(Icons.book, color: _mainBlue)),
+                title: Text(course['Name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Course ID: ${course['ID']}'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => CourseSessionsHistory(
+                    courseId: course['ID'],
+                    courseName: course['Name'],
+                  )));
+                },
+              ),
+            )).toList(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildActionButton(BuildContext context, IconData icon, String label, VoidCallback onTap, {Color? color}) {
-    return ElevatedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 16),
-      label: Text(label, style: const TextStyle(fontSize: 11)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color ?? Colors.indigo.shade50,
-        foregroundColor: color != null ? Colors.white : Colors.indigo,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+  Widget _buildClassAction(IconData icon, String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: _mainBlue.withOpacity(0.1), shape: BoxShape.circle),
+            child: Icon(icon, color: _mainBlue, size: 22),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _mainBlue)),
+        ],
       ),
     );
   }
