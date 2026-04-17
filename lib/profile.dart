@@ -1,8 +1,161 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'model/student.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
-class ProfilePage extends StatelessWidget {
+
+
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+
+  File? _profileImage;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final student = ModalRoute.of(context)!.settings.arguments as Student;
+      _loadImage(student.id);
+    });
+  }
+
+  Future<void> _loadImage(String studentId) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final path = '${directory.path}/$studentId.jpg';
+
+    final file = File(path);
+
+    if (await file.exists()) {
+      setState(() {
+        _profileImage = file;
+      });
+    }
+  }
+
+
+  bool _isUploading = false; // Add this at the top of your _ProfilePageState class
+
+  Future<void> _pickImage(String studentId) async {
+    final picker = ImagePicker();
+    final supabase = Supabase.instance.client;
+
+    // 1. Pick Source
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
+            const SizedBox(height: 10),
+            const Text("Change Profile Photo", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 10),
+            ListTile(
+              leading: const CircleAvatar(backgroundColor: Color(0xFFE3F2FD), child: Icon(Icons.camera_alt, color: Color(0xFF005A9C))),
+              title: const Text("Take a New Photo"),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const CircleAvatar(backgroundColor: Color(0xFFE8F5E9), child: Icon(Icons.photo_library, color: Colors.green)),
+              title: const Text("Choose from Gallery"),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            const SizedBox(height: 25),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final pickedFile = await picker.pickImage(source: source, imageQuality: 40);
+
+    if (pickedFile != null) {
+      setState(() => _isUploading = true); // Start Spinner
+
+      try {
+        final file = File(pickedFile.path);
+        final String fileName = '$studentId.jpg';
+
+        // 1. Upload to Storage (Bucket: avatars)
+        await supabase.storage.from('avatars').upload(
+            fileName,
+            file,
+            fileOptions: const FileOptions(upsert: true)
+        );
+
+        // 2. Get Public URL + Timestamp (to force refresh)
+        final String rawUrl = supabase.storage.from('avatars').getPublicUrl(fileName);
+        final String publicUrl = "$rawUrl?v=${DateTime.now().millisecondsSinceEpoch}";
+
+        // 3. Update Database Table (Table: Student)
+        await supabase.from('Student').update({
+          'profile_image': publicUrl
+        }).eq('ID', studentId);
+
+        setState(() {
+          _profileImage = file;
+          _isUploading = false;
+        });
+
+        _showBeautifulSnackBar("Success!", "Your profile has been updated.", Colors.green, Icons.verified);
+
+      } catch (e) {
+        setState(() => _isUploading = false);
+        print("CRITICAL ERROR: $e");
+        _showBeautifulSnackBar("Upload Failed", e.toString(), Colors.redAccent, Icons.error_outline);
+      }
+    }
+  }
+
+// THE BEAUTIFUL SNACKBAR
+  void _showBeautifulSnackBar(String title, String message, Color color, IconData icon) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        content: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 30),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                    Text(message, style: const TextStyle(fontSize: 13, color: Colors.white), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,22 +187,32 @@ class ProfilePage extends StatelessWidget {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.blue.shade100, width: 2),
                     ),
-                    child: const CircleAvatar(
+                    child: CircleAvatar(
                       radius: 60,
-                      backgroundColor: Color(0xFFF3F6F9),
-                      child: Icon(Icons.person, size: 80, color: Color(0xFFBDBDBD)),
+                      backgroundColor: const Color(0xFFF3F6F9),
+                      backgroundImage: _profileImage != null
+                          ? FileImage(_profileImage!)
+                          : (student.profileImage != null ? NetworkImage(student.profileImage!) as ImageProvider : null),
+                      child: _isUploading
+                          ? const CircularProgressIndicator(color: Color(0xFF005A9C)) // Show this while uploading
+                          : (_profileImage == null && student.profileImage == null)
+                          ? const Icon(Icons.person, size: 80, color: Color(0xFFBDBDBD))
+                          : null,
                     ),
                   ),
                   Positioned(
                     bottom: 5,
                     right: 5,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Colors.orange,
-                        shape: BoxShape.circle,
+                    child: GestureDetector(
+                      onTap: () => _pickImage(student.id),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: Colors.orange,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
                       ),
-                      child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
                     ),
                   ),
                 ],
@@ -96,8 +259,8 @@ class ProfilePage extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
                   onPressed: () {
-                    // Navigate back to Login and clear stack
-                    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                    // Navigate back to Home and clear stack
+                    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
                   },
                   child: const Text(
                     "Logout",

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'model/student.dart';
-
+import 'model/student.dart'; // Ensure your Student model is imported
+import 'package:supabase_flutter/supabase_flutter.dart';
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
 
@@ -13,21 +13,29 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ SAFE CAST (avoid crash)
-    final student =
-    ModalRoute.of(context)?.settings.arguments as Student?;
-
-    if (student == null) {
-      return const Scaffold(
-        body: Center(child: Text("No student data found")),
-      );
-    }
+    _selectedIndex = 1;
+    // 1. CATCH THE STUDENT DATA FROM LOGIN PAGE
+    final student = ModalRoute.of(context)!.settings.arguments as Student;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F6F9),
       body: Column(
         children: [
-          _buildHeader(student),
+          // Inside StudentDashboard Column:
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: Supabase.instance.client
+                .from('Student')
+                .stream(primaryKey: ['ID'])
+                .eq('ID', student.id),
+            builder: (context, snapshot) {
+              if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                // Get the live URL from the database
+                final liveImageUrl = snapshot.data!.first['profile_image'];
+                student.profileImage = liveImageUrl; // Sync the object
+              }
+              return _buildHeader(student);
+            },
+          ),
 
           /// TOP CARDS
           Padding(
@@ -126,14 +134,41 @@ class _StudentDashboardState extends State<StudentDashboard> {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
-            radius: 38,
-            backgroundColor: Colors.white,
-            child: CircleAvatar(
-              radius: 35,
-              backgroundColor: Color(0xFFBDBDBD),
-              child: Icon(Icons.person, size: 45, color: Colors.white),
-            ),
+          Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: CircleAvatar(
+                  radius: 38,
+                  backgroundColor: const Color(0xFFF3F6F9),
+                  // Logic: If profileImage URL exists, show it. Otherwise show default icon.
+                  backgroundImage: student.profileImage != null
+                      ? NetworkImage(student.profileImage!)
+                      : null,
+                  child: student.profileImage == null
+                      ? const Icon(Icons.person, size: 45, color: Color(0xFFBDBDBD))
+                      : null,
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: () {
+                    // Navigate to profile to change photo
+                    Navigator.pushNamed(context, '/profile', arguments: student);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
+                    child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 15),
 
@@ -242,18 +277,26 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  // ================= BOTTOM NAV =================
   Widget _buildBottomNav() {
     return BottomNavigationBar(
       currentIndex: _selectedIndex,
       selectedItemColor: const Color(0xFF005A9C),
       unselectedItemColor: Colors.grey,
       type: BottomNavigationBarType.fixed,
+      backgroundColor: Colors.white,
+      elevation: 20,
+
       onTap: (i) {
+        if (i == _selectedIndex) return;
+
         if (i == 2) {
-          Navigator.pushNamedAndRemoveUntil(
-              context, '/login', (route) => false);
+          // 1. If "Staff" is clicked, send them to login to switch roles
+          Navigator.pushNamed(context, '/login');
+        } if (i == 0) {
+          // If you want Home (index 0) to be accessible
+          Navigator.pushNamed(context, '/');
         } else {
+          // 3. Logic for Alumni (3) if you have those pages
           setState(() => _selectedIndex = i);
         }
       },
