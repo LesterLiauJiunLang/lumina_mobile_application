@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:developer';
 import 'all_score_quiz_screen.dart';
 import 'model/student.dart';
+import 'model/staff.dart';
 import 'home.dart';
 import 'login.dart';
 import 'view_user.dart';
@@ -18,6 +19,7 @@ import 'student_dashboard_quiz.dart';
 import 'Attendance/attendance_history_screen.dart';
 import 'Attendance/student_attendance_scanner.dart';
 import 'Timetable/timetable_screen.dart';
+import 'Attendance/staff_attendance.dart';
 
 
 const String supabaseUrl='https://ipclprhdqqxczshihwot.supabase.co';
@@ -48,7 +50,6 @@ class CampusApp extends StatelessWidget {
         '/': (context) => const HomePage(),
         '/login': (context) => const LoginPage(),
         '/student_dashboard': (context) {
-          // This part is critical to receive the data during navigation
           final student = ModalRoute.of(context)!.settings.arguments as Student;
           return const StudentDashboard();
         },
@@ -68,6 +69,7 @@ class CampusApp extends StatelessWidget {
           final student = ModalRoute.of(context)!.settings.arguments as Student;
           return TimetableScreen(studentId: student.id);
         },
+        '/attendance': (context) => const StaffAttendanceDashboard(),
       },
     );
   }
