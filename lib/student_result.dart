@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'student_score_chart.dart';
 
 class StudentResultScreen extends StatelessWidget {
-  // ✅ quizId is now quizCode (String) to match Supabase schema
   final String quizId;
   final String quizTitle;
   final int score;
@@ -21,91 +20,181 @@ class StudentResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final percent = total == 0 ? 0 : (score / total * 100).round();
+    final bool isPass = percent >= 50;
 
-    // Choose color based on performance
-    Color resultColor = percent >= 50 ? Colors.green : Colors.red;
+    final Color mainColor = isPass ? Colors.green : Colors.red;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Quiz Result"),
-        // Prevent going back to the quiz questions after finishing
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () => Navigator.pop(context),
-          )
-        ],
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.emoji_events_outlined, size: 80, color: Colors.orange),
-              const SizedBox(height: 16),
-              Text(
-                quizTitle,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+      backgroundColor: const Color(0xFFF3F6F9),
+      body: Column(
+        children: [
+          // ================= HEADER =================
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
+            decoration: const BoxDecoration(
+              color: Color(0xFF005A9C),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(35),
+                bottomRight: Radius.circular(35),
               ),
-              const SizedBox(height: 30),
-
-              const Text("Your Score", style: TextStyle(fontSize: 16, color: Colors.grey)),
-              Text(
-                "$score / $total",
-                style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
-              ),
-
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                decoration: BoxDecoration(
-                  color: resultColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () {
+                    Navigator.popUntil(context, (route) => route.isFirst);
+                  },
                 ),
-                child: Text(
-                  "$percent%",
-                  style: TextStyle(
-                      fontSize: 24,
+                Expanded(
+                  child: Text(
+                    "Quiz Result",
+                    style: const TextStyle(
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      color: resultColor
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => StudentScoreChartScreen(
-                        quizId: quizId,
-                        quizTitle: quizTitle,
-                        studentId: studentId,
-                      ),
+                      fontSize: 18,
                     ),
                   ),
-                  icon: const Icon(Icons.bar_chart),
-                  label: const Text("View Score History"),
                 ),
-              ),
-
-              const SizedBox(height: 12),
-
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Back to Dashboard"),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+
+          // ================= BODY =================
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+
+                    const Icon(
+                      Icons.emoji_events_outlined,
+                      size: 80,
+                      color: Colors.orange,
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    Text(
+                      quizTitle,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    // ================= SCORE CARD =================
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          )
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            "Your Score",
+                            style: TextStyle(color: Colors.grey),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          Text(
+                            "$score / $total",
+                            style: const TextStyle(
+                              fontSize: 40,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: mainColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              "$percent% ${isPass ? "PASS" : "FAIL"}",
+                              style: TextStyle(
+                                color: mainColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 40),
+
+                    // ================= BUTTON 1 =================
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF005A9C),
+                          padding: const EdgeInsets.all(14),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => StudentScoreChartScreen(
+                                quizId: quizId,
+                                quizTitle: quizTitle,
+                                studentId: studentId,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.bar_chart),
+                        label: const Text(
+                          "View Score History",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // ================= BUTTON 2 =================
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.all(14),
+                        ),
+                        onPressed: () {
+                          Navigator.popUntil(
+                              context, (route) => route.isFirst);
+                        },
+                        child: const Text("Back to Dashboard"),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
