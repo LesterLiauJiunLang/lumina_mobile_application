@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'student_score_chart.dart';
-
+//ss
 class AllScoreQuizScreen extends StatelessWidget {
   final String? studentId;
 
