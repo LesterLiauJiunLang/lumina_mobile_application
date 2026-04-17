@@ -2,19 +2,9 @@ import 'package:flutter/material.dart';
 import 'staff_create_quiz.dart';
 import 'all_score_quiz_screen.dart';
 import 'staff_view_all_quiz.dart';
-
+//s
 class StaffDashboardQuiz extends StatelessWidget {
   const StaffDashboardQuiz({super.key});
-<<<<<<< Updated upstream
-//ss
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Staff Dashboard")),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-=======
 
   Widget _menuCard({
     required IconData icon,
@@ -38,7 +28,6 @@ class StaffDashboardQuiz extends StatelessWidget {
           ],
         ),
         child: Row(
->>>>>>> Stashed changes
           children: [
             // Icon Box
             Container(
