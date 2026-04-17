@@ -14,6 +14,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    _selectedIndex = 2;
     final staff = ModalRoute.of(context)!.settings.arguments as Staff;
 
     bool isSuperAdmin = staff.jobTitle?.toLowerCase() == 'superadmin';
@@ -247,13 +248,17 @@ class _StaffDashboardState extends State<StaffDashboard> {
       unselectedItemColor: Colors.grey,
       type: BottomNavigationBarType.fixed,
       onTap: (i) {
-        setState(() {
-          _selectedIndex = i;
-        });
+        if (i == _selectedIndex) return;
 
         if (i == 1) {
-          Navigator.pushNamedAndRemoveUntil(
-              context, '/login', (route) => false);
+          // 1. If "Student" is clicked, send them to login to switch roles
+          Navigator.pushNamed(context, '/login');
+        } if (i == 0) {
+          // If you want Home (index 0) to be accessible
+          Navigator.pushNamed(context, '/');
+        } else {
+          // 3. Logic for Alumni (3) if you have those pages
+          setState(() => _selectedIndex = i);
         }
       },
       items: const [

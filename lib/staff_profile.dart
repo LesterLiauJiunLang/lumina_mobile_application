@@ -97,8 +97,8 @@ class StaffProfilePage extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
                   onPressed: () {
-                    // Navigate back to Login and clear stack
-                    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                    // Navigate back to Home and clear stack
+                    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
                   },
                   child: const Text(
                     "Logout",

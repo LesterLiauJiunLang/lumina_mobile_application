@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'model/student.dart'; // Ensure your Student model is imported
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
 
@@ -13,6 +13,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    _selectedIndex = 1;
     // 1. CATCH THE STUDENT DATA FROM LOGIN PAGE
     final student = ModalRoute.of(context)!.settings.arguments as Student;
 
@@ -20,8 +21,21 @@ class _StudentDashboardState extends State<StudentDashboard> {
       backgroundColor: const Color(0xFFF3F6F9),
       body: Column(
         children: [
-          // 2. PASS STUDENT DATA TO THE HEADER
-          _buildHeader(student),
+          // Inside StudentDashboard Column:
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: Supabase.instance.client
+                .from('Student')
+                .stream(primaryKey: ['ID'])
+                .eq('ID', student.id),
+            builder: (context, snapshot) {
+              if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                // Get the live URL from the database
+                final liveImageUrl = snapshot.data!.first['profile_image'];
+                student.profileImage = liveImageUrl; // Sync the object
+              }
+              return _buildHeader(student);
+            },
+          ),
 
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
@@ -129,22 +143,36 @@ class _StudentDashboardState extends State<StudentDashboard> {
         children: [
           Stack(
             children: [
-              const CircleAvatar(
-                radius: 38,
-                backgroundColor: Colors.white,
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
                 child: CircleAvatar(
-                  radius: 35,
-                  backgroundColor: Color(0xFFBDBDBD),
-                  child: Icon(Icons.person, size: 45, color: Colors.white),
+                  radius: 38,
+                  backgroundColor: const Color(0xFFF3F6F9),
+                  // Logic: If profileImage URL exists, show it. Otherwise show default icon.
+                  backgroundImage: student.profileImage != null
+                      ? NetworkImage(student.profileImage!)
+                      : null,
+                  child: student.profileImage == null
+                      ? const Icon(Icons.person, size: 45, color: Color(0xFFBDBDBD))
+                      : null,
                 ),
               ),
               Positioned(
                 bottom: 0,
                 right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
-                  child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
+                child: GestureDetector(
+                  onTap: () {
+                    // Navigate to profile to change photo
+                    Navigator.pushNamed(context, '/profile', arguments: student);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
+                    child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
+                  ),
                 ),
               ),
             ],
@@ -155,18 +183,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // SHOW REAL NAME
                 Text(
                     student.name ?? "N/A",
                     style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)
                 ),
-                // SHOW REAL ID
                 Text(
                     "ID: ${student.id}",
                     style: const TextStyle(color: Colors.white70, fontSize: 14)
                 ),
                 const SizedBox(height: 4),
-                // SHOW REAL PROGRAMME
                 Text(
                   student.programme ?? "Programme not set",
                   style: const TextStyle(color: Colors.white60, fontSize: 12, fontStyle: FontStyle.italic),
@@ -264,23 +289,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  // Widget _buildBottomNav() {
-  //   return BottomNavigationBar(
-  //     currentIndex: _selectedIndex,
-  //     selectedItemColor: const Color(0xFF005A9C),
-  //     unselectedItemColor: Colors.grey,
-  //     type: BottomNavigationBarType.fixed,
-  //     backgroundColor: Colors.white,
-  //     elevation: 20,
-  //     onTap: (i) => setState(() => _selectedIndex = i),
-  //     items: const [
-  //       BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Home"),
-  //       BottomNavigationBarItem(icon: Icon(Icons.person), label: "Student"),
-  //       BottomNavigationBarItem(icon: Icon(Icons.badge_outlined), label: "Staff"),
-  //       BottomNavigationBarItem(icon: Icon(Icons.school_outlined), label: "Alumni"),
-  //     ],
-  //   );
-  // }
 
   Widget _buildBottomNav() {
     return BottomNavigationBar(
@@ -290,15 +298,18 @@ class _StudentDashboardState extends State<StudentDashboard> {
       type: BottomNavigationBarType.fixed,
       backgroundColor: Colors.white,
       elevation: 20,
+
       onTap: (i) {
+        if (i == _selectedIndex) return;
+
         if (i == 2) {
           // 1. If "Staff" is clicked, send them to login to switch roles
-          Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-        } else if (i == 1) {
-          // 2. Already on Student Dashboard, just keep the state
-          setState(() => _selectedIndex = i);
+          Navigator.pushNamed(context, '/login');
+        } if (i == 0) {
+          // If you want Home (index 0) to be accessible
+          Navigator.pushNamed(context, '/');
         } else {
-          // 3. Logic for Home (0) or Alumni (3) if you have those pages
+          // 3. Logic for Alumni (3) if you have those pages
           setState(() => _selectedIndex = i);
         }
       },
