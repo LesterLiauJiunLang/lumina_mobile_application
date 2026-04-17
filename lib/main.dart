@@ -1,17 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:lumina_mobile_application/staff_create_quiz.dart';
+import 'package:lumina_mobile_application/staff_dashboard_quiz.dart';
+import 'package:lumina_mobile_application/staff_view_all_quiz.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import 'staff_dashboard.dart';
+import 'dart:developer';
+import 'all_score_quiz_screen.dart';
+import 'model/student.dart';
+import 'model/staff.dart';
+import 'home.dart';
+import 'login.dart';
+import 'view_user.dart';
+import 'profile.dart';
+import 'register_student.dart';
 import 'student_dashboard.dart';
+import 'staff_dashboard.dart';
+import 'staff_profile.dart';
+import 'student_dashboard_quiz.dart';
+import 'Attendance/attendance_history_screen.dart';
+import 'Attendance/student_attendance_scanner.dart';
+import 'Timetable/timetable_screen.dart';
+import 'Attendance/staff_attendance.dart';
+
+
+const String supabaseUrl='https://ipclprhdqqxczshihwot.supabase.co';
+const String supabaseKey='sb_secret_eDCpEf5_rrI_1aKoTGidNw_lxN5Z82s';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Supabase.initialize(
-    url: 'https://ipclprhdqqxczshihwot.supabase.co',
-    anonKey: 'sb_secret_eDCpEf5_rrI_1aKoTGidNw_lxN5Z82s',
-  );
-
+  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
   runApp(const CampusApp());
 }
 
@@ -21,72 +38,91 @@ class CampusApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lumina App',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedCoflulor: const Color(0xFF005A9C),
-        ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF005A9C),
-          foregroundColor: Colors.white,
-          elevation: 2,
-          centerTitle: true,
-        ),
-      ),
-      home: const RoleSelectionScreen(),
       debugShowCheckedModeBanner: false,
+      title: 'Lumina Hub',
+      theme: ThemeData(
+        primaryColor: const Color(0xFF005A9C),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF005A9C)),
+      ),
+      // '/' tells Flutter to look at the routes below and load the HomePage first
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const HomePage(),
+        '/login': (context) => const LoginPage(),
+        '/student_dashboard': (context) {
+          final student = ModalRoute.of(context)!.settings.arguments as Student;
+          return const StudentDashboard();
+        },
+        '/view_user': (context) => const ViewUserPage(title: 'Student Management',),
+        '/register_student': (context) => const RegisterStudentPage(),
+        '/profile': (context) => const ProfilePage(),
+        '/staff_dashboard': (context) => const StaffDashboard(),
+        '/staff_profile': (context) => const StaffProfilePage(),
+        '/student_dashboard_quiz' : (context) => const StudentDashboardQuiz(),
+        '/staff_dashboard_quiz' : (context) => const StaffDashboardQuiz(),
+        '/create_quiz': (context) => const StaffCreateQuizScreen(),
+        '/view_all_quiz': (context) => const StaffViewAllQuizScreen(),
+        '/quiz_results': (context) => const AllScoreQuizScreen(),
+        '/attendance_history': (context) => const AttendanceHistoryScreen(isStaff: false),
+        '/attendance_scanner': (context) => const StudentAttendanceScanner(),
+        '/timetable': (context) {
+          final student = ModalRoute.of(context)!.settings.arguments as Student;
+          return TimetableScreen(studentId: student.id);
+        },
+        '/attendance': (context) => const StaffAttendanceDashboard(),
+      },
     );
   }
 }
 
-class RoleSelectionScreen extends StatelessWidget {
-  const RoleSelectionScreen({super.key});
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key, required this.title});
+
+
+  final String title;
+
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  int _counter = 0;
+
+  void _incrementCounter() {
+    setState(() {
+
+      _counter++;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Lumina Prototype')),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
+      appBar: AppBar(
+
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+
+        title: Text(widget.title),
+      ),
+      body: Center(
+
         child: Column(
+
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
-              "Select Role",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 30),
-
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const StaffDashboard()),
-                  );
-                },
-                child: const Text("Staff Quiz"),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const StudentDashboard()),
-                  );
-                },
-                child: const Text("Student Quiz"),
-              ),
+            const Text('You have pushed the button this many times:'),
+            Text(
+              '$_counter',
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _incrementCounter,
+        tooltip: 'Increment',
+        child: const Icon(Icons.add),
       ),
     );
   }
