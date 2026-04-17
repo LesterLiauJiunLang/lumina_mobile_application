@@ -17,6 +17,7 @@ import 'staff_profile.dart';
 import 'student_dashboard_quiz.dart';
 import 'Attendance/attendance_history_screen.dart';
 import 'Attendance/student_attendance_scanner.dart';
+import 'Timetable/timetable_screen.dart';
 
 
 const String supabaseUrl='https://ipclprhdqqxczshihwot.supabase.co';
@@ -63,6 +64,10 @@ class CampusApp extends StatelessWidget {
         '/quiz_results': (context) => const AllScoreQuizScreen(),
         '/attendance_history': (context) => const AttendanceHistoryScreen(isStaff: false),
         '/attendance_scanner': (context) => const StudentAttendanceScanner(),
+        '/timetable': (context) {
+          final student = ModalRoute.of(context)!.settings.arguments as Student;
+          return TimetableScreen(studentId: student.id);
+        },
       },
     );
   }
