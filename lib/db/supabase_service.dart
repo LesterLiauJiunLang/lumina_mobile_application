@@ -14,7 +14,7 @@ class SupabaseService {
       await client
           .from('quizzes')
           .update({'title': newTitle})
-          .eq('id', quizId); // ✅ changed
+          .eq('id', quizId);
     } catch (e) {
       print("Error updating quiz title: $e");
       rethrow;
@@ -24,9 +24,20 @@ class SupabaseService {
   static Future<void> deleteQuiz(String quizId) async {
     try {
       await client
+          .from('questions')
+          .delete()
+          .eq('quiz_id', quizId);
+
+      await client
+          .from('attempts')
+          .delete()
+          .eq('quiz_id', quizId);
+
+      await client
           .from('quizzes')
           .delete()
-          .eq('id', quizId); // ✅ changed
+          .eq('id', quizId);
+
     } catch (e) {
       print("Error deleting quiz: $e");
       rethrow;
@@ -45,7 +56,7 @@ class SupabaseService {
     required int correctIndex,
   }) async {
     await client.from('questions').insert({
-      'quiz_id': quizId, // ✅ changed
+      'quiz_id': quizId, 
       'question': question,
       'option_a': a,
       'option_b': b,
@@ -93,7 +104,7 @@ class SupabaseService {
       final List<Map<String, dynamic>> response = await client
           .from('questions')
           .select()
-          .eq('quiz_id', quizId) // ✅ changed
+          .eq('quiz_id', quizId)
           .order('id', ascending: true);
       return response;
     } catch (e) {
@@ -112,7 +123,7 @@ class SupabaseService {
   }) async {
     try {
       await client.from('attempts').insert({
-        'quiz_id': quizId, // ✅ changed
+        'quiz_id': quizId, 
         'student_id': studentId,
         'score': score,
         'total': total,
@@ -130,7 +141,7 @@ class SupabaseService {
       final response = await client
           .from('attempts')
           .select()
-          .eq('quiz_id', quizId) // ✅ changed
+          .eq('quiz_id', quizId)
           .eq('student_id', studentId)
           .order('created_at', ascending: true);
       return response;
