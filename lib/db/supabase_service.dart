@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+//s
 class SupabaseService {
   static final client = Supabase.instance.client;
 
@@ -135,6 +136,22 @@ class SupabaseService {
       return response;
     } catch (e) {
       print("Error fetching performance: $e");
+      rethrow;
+    }
+  }
+
+  // --- GET QUIZ DETAILS ---
+  static Future<Map<String, dynamic>?> getQuizById(String quizId) async {
+    try {
+      final res = await client
+          .from('quizzes')
+          .select()
+          .eq('id', quizId)
+          .maybeSingle();
+
+      return res;
+    } catch (e) {
+      print("Error fetching quiz: $e");
       rethrow;
     }
   }

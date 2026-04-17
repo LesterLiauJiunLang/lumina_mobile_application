@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'student_score_chart.dart';
-
+//s
 class StudentResultScreen extends StatelessWidget {
   // ✅ quizId is now quizCode (String) to match Supabase schema
   final String quizId;

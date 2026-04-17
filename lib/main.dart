@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:developer';
 import 'all_score_quiz_screen.dart';
 import 'model/student.dart';
+import 'model/staff.dart';
 import 'home.dart';
 import 'login.dart';
 import 'view_user.dart';
@@ -15,6 +16,10 @@ import 'student_dashboard.dart';
 import 'staff_dashboard.dart';
 import 'staff_profile.dart';
 import 'student_dashboard_quiz.dart';
+import 'Attendance/attendance_history_screen.dart';
+import 'Attendance/student_attendance_scanner.dart';
+import 'Timetable/timetable_screen.dart';
+import 'Attendance/staff_attendance.dart';
 
 
 const String supabaseUrl='https://ipclprhdqqxczshihwot.supabase.co';
@@ -45,10 +50,8 @@ class CampusApp extends StatelessWidget {
         '/': (context) => const HomePage(),
         '/login': (context) => const LoginPage(),
         '/student_dashboard': (context) {
-          // This part is critical to receive the data during navigation
           final student = ModalRoute.of(context)!.settings.arguments as Student;
-          return StudentDashboard();
-          // return StudentDashboard(student: student);
+          return const StudentDashboard();
         },
         '/view_user': (context) => const ViewUserPage(title: 'Student Management',),
         '/register_student': (context) => const RegisterStudentPage(),
@@ -60,6 +63,13 @@ class CampusApp extends StatelessWidget {
         '/create_quiz': (context) => const StaffCreateQuizScreen(),
         '/view_all_quiz': (context) => const StaffViewAllQuizScreen(),
         '/quiz_results': (context) => const AllScoreQuizScreen(),
+        '/attendance_history': (context) => const AttendanceHistoryScreen(isStaff: false),
+        '/attendance_scanner': (context) => const StudentAttendanceScanner(),
+        '/timetable': (context) {
+          final student = ModalRoute.of(context)!.settings.arguments as Student;
+          return TimetableScreen(studentId: student.id);
+        },
+        '/attendance': (context) => const StaffAttendanceDashboard(),
       },
     );
   }
@@ -99,7 +109,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
         child: Column(
 
-          mainAxisAlignment: .center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text('You have pushed the button this many times:'),
             Text(
