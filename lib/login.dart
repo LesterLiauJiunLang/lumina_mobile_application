@@ -142,7 +142,13 @@ class _LoginPageState extends State<LoginPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context); // Goes back to Dashboard or Home
+            } else {
+              Navigator.pushReplacementNamed(context, '/'); // Fallback to Home
+            }
+          },
         ),
         title: const Row(
           children: [

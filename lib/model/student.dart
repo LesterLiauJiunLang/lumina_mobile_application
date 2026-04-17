@@ -13,6 +13,7 @@ class Student {
   final double? sessionJoined;
   final String? password;
   final String? name;
+  String? profileImage;
 
   Student({
     required this.id,
@@ -29,6 +30,7 @@ class Student {
     this.sessionJoined,
     this.password,
     this.name,
+    this.profileImage,
   });
   //Student
   // Maps Supabase columns to Student object fields
@@ -49,6 +51,7 @@ class Student {
       sessionJoined: json['SessionJoined']?.toDouble(),
       password: json['Password'],
       name: json['Name'],
+      profileImage: json['profile_image']
     );
   }
 }
