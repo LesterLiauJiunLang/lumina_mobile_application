@@ -1,5 +1,9 @@
+import 'dart:io';
+import 'package:csv/csv.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'staff_create_quiz.dart';
 import 'all_score_quiz_screen.dart';
 import 'staff_view_all_quiz.dart';
@@ -33,6 +37,126 @@ class _StaffDashboardQuizState extends State<StaffDashboardQuiz> {
       "attempts": attempts.length,
       "avg": avg.toStringAsFixed(1),
     };
+  }
+
+  // ================= EXPORT CSV =================
+  Future<void> _exportResultsCSV() async {
+    try {
+      final data = await supabase.from('attempts').select();
+
+      if (data.isEmpty) {
+        if (!mounted) return;
+        _showStatusSnackbar("No Data", "No quiz results found", false);
+        return;
+      }
+
+      List<List<dynamic>> rows = [];
+
+      rows.add([
+        "Student ID",
+        "Quiz ID",
+        "Score",
+        "Total",
+        "Percentage",
+        "Attempt Date"
+      ]);
+
+      for (var item in data) {
+        final score = item['score'] ?? 0;
+        final total = item['total'] ?? 1;
+        final percent = (score / total) * 100;
+
+        rows.add([
+          item['student_id'] ?? '',
+          item['quiz_id'] ?? '',
+          score,
+          total,
+          percent.toStringAsFixed(1),
+          item['created_at'] ?? '',
+        ]);
+      }
+
+      String csvData = const ListToCsvConverter().convert(rows);
+
+      final directory = await getApplicationDocumentsDirectory();
+      final filePath = "${directory.path}/quiz_results.csv";
+
+      final file = File(filePath);
+      await file.writeAsString(csvData);
+
+      if (!mounted) return;
+
+      _showStatusSnackbar(
+        "Export Successful",
+        "CSV saved successfully",
+        true,
+      );
+
+      // DEBUG (optional)
+      print("CSV PATH: $filePath");
+
+    } catch (e) {
+      if (!mounted) return;
+
+      _showStatusSnackbar(
+        "Export Failed",
+        e.toString(),
+        false,
+      );
+    }
+  }
+
+  // ================= SNACKBAR =================
+  void _showStatusSnackbar(String title, String message, bool isSuccess) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        content: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: isSuccess
+                ? const Color(0xFF2E7D32)
+                : const Color(0xFFC62828),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              )
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isSuccess ? Icons.check_circle : Icons.error_outline,
+                color: Colors.white,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold)),
+                    Text(message,
+                        style: const TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ================= MENU CARD =================
@@ -127,30 +251,12 @@ class _StaffDashboardQuizState extends State<StaffDashboardQuiz> {
       ),
       child: Row(
         children: [
-          // 🔙 Back Button
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white),
-              onPressed: () => Navigator.pop(context),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                color: Colors.white),
+            onPressed: () => Navigator.pop(context),
           ),
-
-          const SizedBox(width: 12),
-
-          const CircleAvatar(
-            radius: 26,
-            backgroundColor: Colors.white,
-            child: Icon(Icons.quiz,
-                color: Color(0xFF005A9C), size: 28),
-          ),
-
-          const SizedBox(width: 12),
-
+          const SizedBox(width: 10),
           const Expanded(
             child: Text(
               "Quiz Management",
@@ -161,42 +267,29 @@ class _StaffDashboardQuizState extends State<StaffDashboardQuiz> {
               ),
             ),
           ),
-
-          // 🔄 REFRESH BUTTON (NEW)
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white),
-              onPressed: () {
-                setState(() {});
-              },
-            ),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: () => setState(() {}),
           ),
         ],
       ),
     );
   }
 
-  // ================= BODY =================
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F6F9),
-
       body: Column(
         children: [
           _buildHeader(context),
-
           Expanded(
             child: FutureBuilder<Map<String, dynamic>>(
               future: _fetchStats(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
-                  return const Center(
-                      child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator());
                 }
 
                 final data = snapshot.data!;
@@ -204,35 +297,32 @@ class _StaffDashboardQuizState extends State<StaffDashboardQuiz> {
                 return ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
-                    // ===== STATS =====
                     const Text(
                       "Overview",
-                      style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-
                     const SizedBox(height: 12),
 
                     Row(
                       children: [
-                        _statCard("Quizzes",
-                            data['quizzes'].toString(), Icons.quiz),
+                        _statCard("Quizzes", data['quizzes'].toString(),
+                            Icons.quiz),
                         const SizedBox(width: 10),
-                        _statCard("Attempts",
-                            data['attempts'].toString(), Icons.people),
+                        _statCard("Attempts", data['attempts'].toString(),
+                            Icons.people),
                         const SizedBox(width: 10),
-                        _statCard("Avg Score",
-                            "${data['avg']}%", Icons.bar_chart),
+                        _statCard(
+                            "Avg Score", "${data['avg']}%", Icons.bar_chart),
                       ],
                     ),
 
                     const SizedBox(height: 25),
 
-                    // ===== MENU =====
                     const Text(
                       "Quick Actions",
-                      style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
 
                     const SizedBox(height: 12),
@@ -240,18 +330,7 @@ class _StaffDashboardQuizState extends State<StaffDashboardQuiz> {
                     _menuCard(
                       icon: Icons.add_task,
                       title: "Create Quiz",
-                      onTap: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const StaffCreateQuizScreen(),
-                          ),
-                        );
-
-                        if (result == true) {
-                          setState(() {}); 
-                        }
-                      },
+                      onTap: () {},
                       color: Colors.blue,
                     ),
 
@@ -276,25 +355,16 @@ class _StaffDashboardQuizState extends State<StaffDashboardQuiz> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) =>
-                              const AllScoreQuizScreen()),
+                              builder: (_) => const AllScoreQuizScreen()),
                         );
                       },
                       color: Colors.purple,
                     ),
 
-                    // 🔥 FUTURE EXTENSIONS
-                    _menuCard(
-                      icon: Icons.analytics,
-                      title: "Analytics Dashboard (Coming Soon)",
-                      onTap: () {},
-                      color: Colors.teal,
-                    ),
-
                     _menuCard(
                       icon: Icons.download,
-                      title: "Export Results CSV (Coming Soon)",
-                      onTap: () {},
+                      title: "Export Results CSV",
+                      onTap: _exportResultsCSV,
                       color: Colors.green,
                     ),
                   ],
