@@ -62,7 +62,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
                       Icons.person_add_alt_1_outlined, '/register_student'),
 
                   _buildMenuButton(context, "Staff Directory",
-                      Icons.badge_outlined, '/view_staff'),
+                      Icons.badge_outlined, '/staff_directory'),
 
                   const SizedBox(height: 25),
                   const Divider(),

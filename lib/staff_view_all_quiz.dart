@@ -1,3 +1,4 @@
+import 'quiz_qr_generator.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'staff_edit_quiz.dart';
@@ -206,6 +207,29 @@ class _StaffViewAllQuizScreenState extends State<StaffViewAllQuizScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                icon: const Icon(Icons.qr_code, color: Colors.green),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => QuizQRGeneratorScreen(
+                                        quizId: quizId,
+                                        quizTitle: title,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+
+                            const SizedBox(width: 6),
+
                             // EDIT
                             Container(
                               decoration: BoxDecoration(
