@@ -172,23 +172,6 @@ class StudentResultScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-
-                    const SizedBox(height: 12),
-
-                    // ================= BUTTON 2 =================
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.all(14),
-                        ),
-                        onPressed: () {
-                          Navigator.popUntil(
-                              context, (route) => route.isFirst);
-                        },
-                        child: const Text("Back to Dashboard"),
-                      ),
-                    ),
                   ],
                 ),
               ),
