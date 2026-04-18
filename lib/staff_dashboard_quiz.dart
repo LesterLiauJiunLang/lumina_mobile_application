@@ -330,7 +330,18 @@ class _StaffDashboardQuizState extends State<StaffDashboardQuiz> {
                     _menuCard(
                       icon: Icons.add_task,
                       title: "Create Quiz",
-                      onTap: () {},
+                      onTap: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const StaffCreateQuizScreen(),
+                          ),
+                        );
+
+                        if (result == true) {
+                          setState(() {});
+                        }
+                      },
                       color: Colors.blue,
                     ),
 
