@@ -1,3 +1,4 @@
+import 'student_quiz_qr_scanner.dart';
 import 'package:flutter/material.dart';
 import 'db/supabase_service.dart';
 import 'student_attempt_quiz.dart';
@@ -49,6 +50,59 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
                 "Input your quiz code to join",
                 style: TextStyle(color: Colors.grey),
                 textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 10),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF005A9C),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
+                  label: const Text(
+                    "Scan QR Code",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(context);
+
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StudentQRScannerScreen(
+                          studentId: widget.studentId, // ✅ PASS THIS
+                        ),
+                      ),
+                    );
+
+                    if (result != null) {
+                      final quiz = await SupabaseService.getQuizById(result);
+
+                      if (quiz == null) {
+                        _showStatusSnackbar(
+                          "Not Found",
+                          "Invalid QR Code",
+                          false,
+                        );
+                        return;
+                      }
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StudentAttemptQuizScreen(
+                            quizId: result,
+                            quizTitle: quiz['title'],
+                            studentId: widget.studentId,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
               ),
 
               const SizedBox(height: 20),
