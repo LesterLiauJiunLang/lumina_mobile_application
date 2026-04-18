@@ -20,112 +20,138 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
   final TextEditingController _searchController = TextEditingController();
   String searchQuery = "";
 
-  void _showEnterQuizDialog() {
-    final TextEditingController idController = TextEditingController();
+  void _showEnterQuizDialog(BuildContext context) {
+    final TextEditingController _quizController = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Enter Quiz ID"),
-        content: TextField(
-          controller: idController,
-          decoration: const InputDecoration(
-            hintText: "Enter quiz ID",
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+
+              const Text(
+                "Enter Quiz ID",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              const Text(
+                "Input your quiz code to join",
+                style: TextStyle(color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 20),
+
+              //INPUT FIELD
+              TextField(
+                controller: _quizController,
+                textAlign: TextAlign.center,
+                maxLength: 12,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 3,
+                ),
+                decoration: InputDecoration(
+                  hintText: "e.g. 123456",
+                  counterText: "",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+
+                  //SEND BUTTON
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.send,
+                        color: Color(0xFF005A9C)),
+                    onPressed: () async {
+                      final id = _quizController.text.trim();
+
+                      if (id.isEmpty) return;
+
+                      final quiz = await SupabaseService.getQuizById(id);
+
+                      if (quiz == null) {
+                        Navigator.pop(context);
+
+                        _showStatusSnackbar(
+                          "Not Found",
+                          "Quiz ID does not exist",
+                          false,
+                        );
+                        return;
+                      }
+
+                      Navigator.pop(context);
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StudentAttemptQuizScreen(
+                            quizId: id,
+                            quizTitle: quiz['title'],
+                            studentId: widget.studentId,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
+      ),
+    );
+  }
+
+  void _showStatusSnackbar(String title, String message, bool isSuccess) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        content: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isSuccess ? Colors.green : Colors.red,
+            borderRadius: BorderRadius.circular(12),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              final enteredId = idController.text.trim();
-
-              if (enteredId.isEmpty) return;
-
-              try {
-                // 🔥 Check if quiz exists
-                final quiz = await SupabaseService.client
-                    .from('quizzes')
-                    .select()
-                    .eq('id', enteredId)
-                    .maybeSingle();
-
-                if (quiz == null) {
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      duration: const Duration(seconds: 3),
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: Colors.transparent,
-                      elevation: 0,
-                      content: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFC62828), // ❌ red
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black26,
-                              blurRadius: 10,
-                              offset: Offset(0, 4),
-                            )
-                          ],
-                        ),
-                        child: Row(
-                          children: const [
-                            Icon(Icons.error_outline, color: Colors.white, size: 28),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Quiz Not Found",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    "Please check the Quiz ID and try again.",
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-
-                  return;
-                }
-
-                Navigator.pop(context);
-
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => StudentAttemptQuizScreen(
-                      quizId: enteredId,
-                      quizTitle: quiz['title'] ?? "Quiz",
-                      studentId: widget.studentId,
-                    ),
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Invalid Quiz ID")),
-                );
-              }
-            },
-            child: const Text("Enter"),
+          child: Row(
+            children: [
+              Icon(
+                isSuccess ? Icons.check_circle : Icons.error,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "$title\n$message",
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -184,9 +210,9 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.login, color: Colors.white),
-                      tooltip: "Enter Quiz ID",
-                      onPressed: () => _showEnterQuizDialog(),
+                      icon: const Icon(Icons.qr_code, color: Colors.white),
+                      tooltip: 'Enter Quiz ID',
+                      onPressed: () => _showEnterQuizDialog(context),
                     ),
                     IconButton(
                       icon: const Icon(Icons.refresh, color: Colors.white),
