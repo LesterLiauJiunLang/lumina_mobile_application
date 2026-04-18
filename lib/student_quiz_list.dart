@@ -17,6 +17,145 @@ class StudentQuizListScreen extends StatefulWidget {
 class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
   Key _refreshKey = UniqueKey();
 
+  final TextEditingController _searchController = TextEditingController();
+  String searchQuery = "";
+
+  void _showEnterQuizDialog(BuildContext context) {
+    final TextEditingController _quizController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+
+              const Text(
+                "Enter Quiz ID",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              const Text(
+                "Input your quiz code to join",
+                style: TextStyle(color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 20),
+
+              //INPUT FIELD
+              TextField(
+                controller: _quizController,
+                textAlign: TextAlign.center,
+                maxLength: 12,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 3,
+                ),
+                decoration: InputDecoration(
+                  hintText: "e.g. 123456",
+                  counterText: "",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+
+                  //SEND BUTTON
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.send,
+                        color: Color(0xFF005A9C)),
+                    onPressed: () async {
+                      final id = _quizController.text.trim();
+
+                      if (id.isEmpty) return;
+
+                      final quiz = await SupabaseService.getQuizById(id);
+
+                      if (quiz == null) {
+                        Navigator.pop(context);
+
+                        _showStatusSnackbar(
+                          "Not Found",
+                          "Quiz ID does not exist",
+                          false,
+                        );
+                        return;
+                      }
+
+                      Navigator.pop(context);
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StudentAttemptQuizScreen(
+                            quizId: id,
+                            quizTitle: quiz['title'],
+                            studentId: widget.studentId,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showStatusSnackbar(String title, String message, bool isSuccess) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        content: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isSuccess ? Colors.green : Colors.red,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isSuccess ? Icons.check_circle : Icons.error,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "$title\n$message",
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -27,7 +166,7 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
           // ===== HEADER =====
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
+            padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
             decoration: const BoxDecoration(
               color: Color(0xFF005A9C),
               borderRadius: BorderRadius.only(
@@ -35,44 +174,82 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
                 bottomRight: Radius.circular(35),
               ),
             ),
-            child: Row(
+            child: Column(
               children: [
-                // 🔙 Back
+                Row(
+                  children: [
+                    // 🔙 Back
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                            color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+
+                    const SizedBox(width: 10),
+
+                    const CircleAvatar(
+                      backgroundColor: Colors.white,
+                      child: Icon(Icons.quiz, color: Color(0xFF005A9C)),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    const Expanded(
+                      child: Text(
+                        "Available Quizzes",
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.qr_code, color: Colors.white),
+                      tooltip: 'Enter Quiz ID',
+                      onPressed: () => _showEnterQuizDialog(context),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      onPressed: () {
+                        setState(() {
+                          _refreshKey = UniqueKey();
+                          _searchController.clear();
+                          searchQuery = "";
+                        });
+                      },
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 15),
+
+                // 🔍 SEARCH BAR
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(25),
                   ),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() {
+                        searchQuery = value.toLowerCase();
+                      });
+                    },
+                    decoration: const InputDecoration(
+                      hintText: "Search quiz title...",
+                      prefixIcon: Icon(Icons.search),
+                      border: InputBorder.none,
+                      contentPadding:
+                      EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                    ),
                   ),
-                ),
-
-                const SizedBox(width: 10),
-
-                const CircleAvatar(
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.quiz, color: Color(0xFF005A9C)),
-                ),
-
-                const SizedBox(width: 12),
-
-                const Expanded(
-                  child: Text(
-                    "Available Quizzes",
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-
-                IconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.white),
-                  onPressed: () =>
-                      setState(() => _refreshKey = UniqueKey()),
                 ),
               ],
             ),
@@ -100,23 +277,35 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
 
                 final rows = snapshot.data ?? [];
 
-                if (rows.isEmpty) {
+                // 🔥 FILTER LOGIC
+                final filtered = rows.where((quiz) {
+                  final title =
+                  (quiz['title'] ?? "").toString().toLowerCase();
+                  return title.contains(searchQuery);
+                }).toList();
+
+                if (filtered.isEmpty) {
                   return const Center(
                     child: Text(
-                      'No quizzes available.',
+                      'No matching quizzes found.',
                       style: TextStyle(fontSize: 16),
                     ),
                   );
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () async =>
-                      setState(() => _refreshKey = UniqueKey()),
+                  onRefresh: () async {
+                    setState(() {
+                      _refreshKey = UniqueKey();
+                      _searchController.clear();
+                      searchQuery = "";
+                    });
+                  },
                   child: ListView.builder(
                     padding: const EdgeInsets.all(20),
-                    itemCount: rows.length,
+                    itemCount: filtered.length,
                     itemBuilder: (context, i) {
-                      final quiz = rows[i];
+                      final quiz = filtered[i];
 
                       final String quizId = quiz['id'] ?? "";
                       final String title =
@@ -158,7 +347,6 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
                           },
                           child: Row(
                             children: [
-                              // 🎯 Icon
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
@@ -175,7 +363,6 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
 
                               const SizedBox(width: 15),
 
-                              // 📄 Info
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment:

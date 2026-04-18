@@ -235,7 +235,7 @@ class _StudentScoreChartScreenState
                       final date = _formatDate(a['created_at']);
                       final p = _percent(score, total);
 
-                      // ✅ FIXED NUMBERING
+                      //FIXED NUMBERING
                       final attemptNumber = isAscending
                           ? i + 1
                           : attempts.length - i;
@@ -265,26 +265,6 @@ class _StudentScoreChartScreenState
                         ),
                       );
                     },
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF005A9C),
-                      padding: const EdgeInsets.all(14),
-                    ),
-                    onPressed: () {
-                      Navigator.popUntil(
-                          context, (route) => route.isFirst);
-                    },
-                    child: const Text(
-                      "Return to Dashboard",
-                      style: TextStyle(color: Colors.white),
-                    ),
                   ),
                 ),
               ],
