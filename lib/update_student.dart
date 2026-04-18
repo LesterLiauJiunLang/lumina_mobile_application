@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'model/student.dart';
+import 'package:flutter/services.dart';
 
 class UpdateStudentPage extends StatefulWidget {
   final Student student;
@@ -14,21 +15,19 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
   final supabase = Supabase.instance.client;
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers
   late TextEditingController _nameController;
   late TextEditingController _icController;
   late TextEditingController _dobController;
   late TextEditingController _addressController;
   late TextEditingController _phoneController;
 
-  // Dropdown states
   String? _selectedGender;
   String? _selectedProgramme;
   String? _selectedFaculty;
   int? _selectedGroup;
 
   final List<int> tutorialGroups = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-                                    11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+    11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
   final Map<String, String> programmeToFaculty = {
     'Bachelor of Software Engineering (Honours)': 'FOCS - Computing & Information Technology',
@@ -45,10 +44,9 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
     _icController = TextEditingController(text: widget.student.ic);
     _dobController = TextEditingController(text: widget.student.dob);
     _addressController = TextEditingController(text: widget.student.address);
-    _phoneController = TextEditingController(text: widget.student.phoneNumber); // Initialize
+    _phoneController = TextEditingController(text: widget.student.phoneNumber);
 
     _selectedGender = widget.student.gender;
-
     int? currentGroup = widget.student.tutorialGroup?.toInt();
     if (tutorialGroups.contains(currentGroup)) {
       _selectedGroup = currentGroup;
@@ -68,30 +66,14 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
     _icController.dispose();
     _dobController.dispose();
     _addressController.dispose();
-    _phoneController.dispose(); // Clean up
+    _phoneController.dispose();
     super.dispose();
   }
 
+  // --- IC LOGIC ---
   bool _isValidIC(String ic) {
     final icRegex = RegExp(r'^\d{6}-\d{2}-\d{4}$');
     if (!icRegex.hasMatch(ic)) return false;
-
-    String cleanIc = ic.replaceAll('-', '');
-    int yearShort = int.parse(cleanIc.substring(0, 2));
-    int month = int.parse(cleanIc.substring(2, 4));
-    int day = int.parse(cleanIc.substring(4, 6));
-
-    if (month < 1 || month > 12) return false;
-
-    int fullYear = (yearShort > 30) ? 1900 + yearShort : 2000 + yearShort;
-    List<int> daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-    if ((fullYear % 4 == 0 && fullYear % 100 != 0) || (fullYear % 400 == 0)) {
-      daysInMonth[1] = 29;
-    }
-
-    if (day < 1 || day > daysInMonth[month - 1]) return false;
-
     return true;
   }
 
@@ -103,7 +85,6 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
       String yearPrefix = (yearInt > 30) ? "19" : "20";
       String month = ic.substring(2, 4);
       String day = ic.substring(4, 6);
-
       int lastDigit = int.parse(ic.substring(11));
 
       setState(() {
@@ -128,10 +109,61 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
           'Address': _addressController.text,
         }).eq('ID', widget.student.id);
 
-        if (mounted) Navigator.pop(context, true);
+        if (mounted) {
+          // --- BEAUTIFUL SUCCESS SNACKBAR ---
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 28),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Update Successful!",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        Text(
+                          "ID: ${widget.student.id} | ${_nameController.text}",
+                          style: const TextStyle(fontSize: 13, color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green[700],
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              margin: const EdgeInsets.all(15),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+
+          // Delay slightly so user can see the snackbar before popping the page
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) Navigator.pop(context, true);
+          });
+        }
       } catch (e) {
+        // --- BEAUTIFUL ERROR SNACKBAR ---
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Update Failed: $e"), backgroundColor: Colors.red),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(child: Text("Error: ${e.toString()}")),
+              ],
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(15),
+          ),
         );
       }
     }
@@ -151,22 +183,28 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
           key: _formKey,
           child: Column(
             children: [
-              // --- 1. STUDENT ID INFO AT THE TOP ---
               _buildReadOnlyInfo("Student ID", widget.student.id.toString(), icon: Icons.badge),
-
               const SizedBox(height: 10),
 
               _buildTextField("Full Name", _nameController),
+
+              // --- UPDATED IC FIELD TO HAVE DASHES ---
               _buildTextField(
                 "MyKad (IC)",
                 _icController,
-                hint: "YYMMDDa-XX-XXXX",
+                hint: "YYMMDD-XX-XXXX",
+                keyboard: TextInputType.number,
+                formatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  ICFormatter(), // Added IC Formatter
+                ],
                 validator: (value) {
                   if (value == null || value.isEmpty) return "IC is required";
-                  if (!_isValidIC(value)) return "Invalid IC format or date";
+                  if (!_isValidIC(value)) return "Invalid IC format";
                   return null;
                 },
               ),
+
               _buildTextField("Date of Birth (Auto)", _dobController, readOnly: true),
 
               _buildDropdown("Gender", ["Male", "Female"], _selectedGender, (val) {
@@ -176,9 +214,16 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
               _buildTextField(
                   "Phone Number",
                   _phoneController,
-                  hint: "e.g. 012-3456789",
+                  hint: "01X-XXXXXXX",
+                  keyboard: TextInputType.number,
+                  prefixIcon: Icons.phone_android,
+                  formatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    StaffPhoneFormatter(),
+                  ],
                   validator: (value) {
-                    if (value == null || value.isEmpty) return "Phone number is required";
+                    if (value == null || value.isEmpty) return "Required";
+                    if (value.replaceAll('-', '').length < 10) return "Too short";
                     return null;
                   }
               ),
@@ -215,10 +260,14 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
     );
   }
 
-  // --- UI Helpers ---
-
   Widget _buildTextField(String label, TextEditingController controller,
-      {bool readOnly = false, String? hint, int maxLines = 1, String? Function(String?)? validator}) {
+      {bool readOnly = false,
+        String? hint,
+        int maxLines = 1,
+        TextInputType? keyboard,
+        IconData? prefixIcon,
+        List<TextInputFormatter>? formatters,
+        String? Function(String?)? validator}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: TextFormField(
@@ -226,9 +275,12 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
         readOnly: readOnly,
         validator: validator,
         maxLines: maxLines,
+        keyboardType: keyboard,
+        inputFormatters: formatters,
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
+          prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: const Color(0xFF005A9C)) : null,
           border: const OutlineInputBorder(),
           filled: readOnly,
           fillColor: readOnly ? Colors.grey[100] : null,
@@ -281,6 +333,48 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// --- ADDED IC FORMATTER ---
+class ICFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    String text = newValue.text.replaceAll('-', '');
+    if (text.length > 12) text = text.substring(0, 12);
+
+    String formatted = "";
+    for (int i = 0; i < text.length; i++) {
+      formatted += text[i];
+      // Adds dash after 6th and 8th characters: 000000-00-0000
+      if ((i == 5 || i == 7) && i != text.length - 1) {
+        formatted += "-";
+      }
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+class StaffPhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    String text = newValue.text.replaceAll('-', '');
+    if (text.length > 11) text = text.substring(0, 11);
+
+    String formatted = "";
+    for (int i = 0; i < text.length; i++) {
+      formatted += text[i];
+      if (i == 2 && text.length > 3) formatted += "-";
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

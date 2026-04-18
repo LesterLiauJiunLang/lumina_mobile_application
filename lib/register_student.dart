@@ -280,7 +280,7 @@ class _RegisterStudentPageState extends State<RegisterStudentPage> {
 
       // --- LOGIC: ID GENERATION (WMR / WMD / JMR / JMD) ---
       // If Johor campus, use 'J', otherwise use 'W'
-      String campusChar = (_selectedCampus == "Johor") ? "J" : "W";
+      String campusChar = (_selectedCampus == "Johor") ? "J" : (_selectedCampus == "Penang") ? "P" : "W";
       // Middle char is always 'M' as requested
       String levelChar = "M";
       // Last char is 'R' for Degree, 'D' for Diploma
