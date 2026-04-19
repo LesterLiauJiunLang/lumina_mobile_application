@@ -93,7 +93,6 @@ class _StaffAttendanceDashboardState extends State<StaffAttendanceDashboard> {
                 ? const Card(child: ListTile(title: Text('No classes scheduled for today.'), leading: Icon(Icons.info_outline)))
                 : Column(
               children: _todaySessions.map((sessionData) {
-                // SAFETY CHECK: If Course is returned as a list, take the first item
                 final courseRaw = sessionData['Course'];
                 final Map<String, dynamic> course = (courseRaw is List) ? courseRaw.first : courseRaw;
 
@@ -124,16 +123,11 @@ class _StaffAttendanceDashboardState extends State<StaffAttendanceDashboard> {
                         ),
                         const Divider(height: 30),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
                             _buildClassAction(Icons.qr_code, 'Display QR', () {
                               Navigator.push(context, MaterialPageRoute(builder: (context) => QRCodeDisplay(
                                 courseName: course['Name'], courseId: course['ID'], staffId: _staffId, section: "1", sendToEmail: false,
-                              )));
-                            }),
-                            _buildClassAction(Icons.email_outlined, 'Email QR', () {
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => QRCodeDisplay(
-                                courseName: course['Name'], courseId: course['ID'], staffId: _staffId, section: "1", sendToEmail: true,
                               )));
                             }),
                             _buildClassAction(Icons.edit_calendar, 'Manual', () {

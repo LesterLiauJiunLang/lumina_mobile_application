@@ -128,6 +128,8 @@ class _StudentAttemptQuizScreenState extends State<StudentAttemptQuizScreen> {
           score: finalScore,
           total: questions.length,
           studentId: widget.studentId,
+          questions: questions,
+          selectedAnswers: selectedAnswers,
         ),
       ),
     );
@@ -190,21 +192,28 @@ class _StudentAttemptQuizScreenState extends State<StudentAttemptQuizScreen> {
       return;
     }
 
-    final q = questions[index];
-    final correctIndex =
-        int.tryParse(q['correct_index']?.toString() ?? "0") ?? 0;
-
-    if (selectedAnswers[index] == correctIndex) score++;
-
     if (index < questions.length - 1) {
       setState(() {
         index++;
       });
     } else {
+      // ✅ CALCULATE SCORE ONLY ON SUBMIT
+      int finalScore = 0;
+
+      for (int i = 0; i < questions.length; i++) {
+        final q = questions[i];
+        final correctIndex =
+            int.tryParse(q['correct_index']?.toString() ?? "0") ?? 0;
+
+        if (selectedAnswers[i] == correctIndex) {
+          finalScore++;
+        }
+      }
+
       await SupabaseService.saveAttempt(
         quizId: widget.quizId,
         studentId: widget.studentId,
-        score: score,
+        score: finalScore,
         total: questions.length,
       );
 
@@ -216,9 +225,11 @@ class _StudentAttemptQuizScreenState extends State<StudentAttemptQuizScreen> {
           builder: (_) => StudentResultScreen(
             quizId: widget.quizId,
             quizTitle: widget.quizTitle,
-            score: score,
+            score: finalScore,
             total: questions.length,
             studentId: widget.studentId,
+            questions: questions,
+            selectedAnswers: selectedAnswers,
           ),
         ),
       );

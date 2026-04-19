@@ -27,12 +27,10 @@ class _StaffAddQuestionScreenState extends State<StaffAddQuestionScreen> {
   final _b = TextEditingController();
   final _c = TextEditingController();
   final _d = TextEditingController();
-
   String _correct = "A";
   String? _optionsMsg;
-
   final List<Map<String, String>> _questions = [];
-
+  int _currentIndex = -1;
   final supabase = Supabase.instance.client;
 
   @override
@@ -104,16 +102,23 @@ class _StaffAddQuestionScreenState extends State<StaffAddQuestionScreen> {
       return;
     }
 
-    setState(() {
-      _questions.add({
-        "q": _q.text.trim(),
-        "a": _a.text.trim(),
-        "b": _b.text.trim(),
-        "c": _c.text.trim(),
-        "d": _d.text.trim(),
-        "correct": _correct,
-      });
+    final newQuestion = {
+      "q": _q.text.trim(),
+      "a": _a.text.trim(),
+      "b": _b.text.trim(),
+      "c": _c.text.trim(),
+      "d": _d.text.trim(),
+      "correct": _correct,
+    };
 
+    setState(() {
+      if (_currentIndex == -1) {
+        _questions.add(newQuestion);
+      } else {
+        _questions[_currentIndex] = newQuestion;
+      }
+
+      _currentIndex = -1;
       _clearInputs();
     });
   }
@@ -122,15 +127,35 @@ class _StaffAddQuestionScreenState extends State<StaffAddQuestionScreen> {
     if (_questions.isEmpty) return;
 
     setState(() {
-      final last = _questions.removeLast();
+      if (_currentIndex == -1) {
+        _currentIndex = _questions.length - 1;
+      } else if (_currentIndex > 0) {
+        _currentIndex--;
+      }
 
-      _q.text = last["q"] ?? "";
-      _a.text = last["a"] ?? "";
-      _b.text = last["b"] ?? "";
-      _c.text = last["c"] ?? "";
-      _d.text = last["d"] ?? "";
-      _correct = last["correct"] ?? "A";
-      _optionsMsg = null;
+      final q = _questions[_currentIndex];
+
+      _q.text = q["q"] ?? "";
+      _a.text = q["a"] ?? "";
+      _b.text = q["b"] ?? "";
+      _c.text = q["c"] ?? "";
+      _d.text = q["d"] ?? "";
+      _correct = q["correct"] ?? "A";
+    });
+  }
+
+  void _editQuestion(int index) {
+    final q = _questions[index];
+
+    setState(() {
+      _currentIndex = index;
+
+      _q.text = q["q"] ?? "";
+      _a.text = q["a"] ?? "";
+      _b.text = q["b"] ?? "";
+      _c.text = q["c"] ?? "";
+      _d.text = q["d"] ?? "";
+      _correct = q["correct"] ?? "A";
     });
   }
 
@@ -162,7 +187,7 @@ class _StaffAddQuestionScreenState extends State<StaffAddQuestionScreen> {
         };
 
         await supabase.from('questions').insert({
-          'quiz_id': widget.quizId, // ✅ FIXED
+          'quiz_id': widget.quizId,
           'question': q["q"],
           'option_a': q["a"],
           'option_b': q["b"],
@@ -443,8 +468,13 @@ class _StaffAddQuestionScreenState extends State<StaffAddQuestionScreen> {
                     ),
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text("Q${i + 1}: ${q["q"]}"),
+                      onTap: () => _editQuestion(i),
+                      title: Text(
+                        "Q${i + 1}: ${q["q"]}",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       subtitle: Text("Correct: ${q["correct"]}"),
+                      trailing: const Icon(Icons.edit, size: 18, color: Colors.grey),
                     ),
                   );
                 }),

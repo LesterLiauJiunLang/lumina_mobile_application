@@ -81,7 +81,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       Icons.assignment_outlined,
                       const Color(0xFFF3E5F5), Colors.purple, '/examination', student),
 
-                  /// ✅ IMPORTANT: PASS STUDENT HERE
                   _buildMenuCard(context, "My Quizzes",
                       Icons.help_center_outlined,
                       const Color(0xFFFFF8E1),
@@ -92,9 +91,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   _buildMenuCard(context, "Results", Icons.star_border,
                       const Color(0xFFE0F2F1), Colors.teal, '/results', student),
 
-                  _buildMenuCard(context, "Helpline",
-                      Icons.face_retouching_natural,
-                      const Color(0xFFE0F7FA), Colors.cyan, '/helpline', student),
+                  _buildMenuCard(context, "Announcements",
+                      Icons.campaign,
+                      const Color(0xFFE0F7FA),
+                      Colors.cyan,
+                      '/announcements',
+                      student),
                 ],
               ),
             ),
