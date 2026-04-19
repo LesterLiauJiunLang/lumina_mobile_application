@@ -11,7 +11,6 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0; // Home is index 0
 
   void _onItemTapped(int index) {
-    // Navigation Logic
     switch (index) {
       case 0:
       // Stay on Home
@@ -19,9 +18,13 @@ class _HomePageState extends State<HomePage> {
         break;
 
       case 1: // Student Tab
+      // Pass the 'Student' argument to enforce student-only login
+        Navigator.pushNamed(context, '/login', arguments: 'Student');
+        break;
+
       case 2: // Staff Tab
-      // Do NOT call setState here. Keep highlight on Home (0).
-        Navigator.pushNamed(context, '/login');
+      // Pass the 'Staff' argument to enforce staff-only login
+        Navigator.pushNamed(context, '/login', arguments: 'Staff');
         break;
 
       case 3: // Alumni Tab
@@ -49,6 +52,13 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF005A9C),
         elevation: 0,
+        // Only shows the leading widget if there is a page to go back to
+        leading: Navigator.canPop(context)
+            ? IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
+          onPressed: () => Navigator.pop(context),
+        )
+            : null, // If it's the first page, leading is null (no arrow)
         title: const Text("Lumina Portal",
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
