@@ -26,6 +26,7 @@ import 'student_dashboard_quiz.dart';
 import 'Attendance/attendance_history_screen.dart';
 import 'Attendance/student_attendance_scanner.dart';
 import 'Attendance/staff_attendance.dart';
+import 'Timetable/timetable_screen.dart';
 import 'announcement_screen.dart';
 import 'create_announcement_screen.dart';
 
@@ -84,6 +85,10 @@ class CampusApp extends StatelessWidget {
         '/create_announcement': (context) {
           final staff = ModalRoute.of(context)!.settings.arguments as Staff;
           return CreateAnnouncementScreen(staff: staff);
+        },
+        '/timetable': (context) {
+          final student = ModalRoute.of(context)!.settings.arguments as Student;
+          return TimetableScreen(studentId: student.id);
         },
       },
     );
