@@ -47,9 +47,7 @@ class StudentResultScreen extends StatelessWidget {
               children: [
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
+                  onPressed: () => Navigator.pop(context),
                 ),
                 const Expanded(
                   child: Text(
@@ -69,6 +67,7 @@ class StudentResultScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
+
                 // ===== SCORE CARD =====
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -146,6 +145,8 @@ class StudentResultScreen extends StatelessWidget {
                   final correctIndex =
                       int.tryParse(q['correct_index'].toString()) ?? 0;
 
+                  final isQuestionCorrect = selected == correctIndex;
+
                   final options = [
                     q['option_a'],
                     q['option_b'],
@@ -163,14 +164,32 @@ class StudentResultScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "Q${i + 1}: ${q['question']}",
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold),
+
+                        // ===== QUESTION TITLE =====
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "Q${i + 1}: ${q['question']}",
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            Text(
+                              isQuestionCorrect ? "Correct" : "Wrong",
+                              style: TextStyle(
+                                color: isQuestionCorrect
+                                    ? Colors.green
+                                    : Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
 
                         const SizedBox(height: 8),
 
+                        // ===== OPTIONS =====
                         ...List.generate(options.length, (optIndex) {
                           final text = options[optIndex];
                           if (text == null || text.toString().isEmpty) {
@@ -181,11 +200,16 @@ class StudentResultScreen extends StatelessWidget {
                           final isCorrect = correctIndex == optIndex;
 
                           Color bgColor = Colors.transparent;
+                          String label = "";
 
                           if (isCorrect) {
-                            bgColor = Colors.green.withOpacity(0.2);
-                          } else if (isSelected && !isCorrect) {
-                            bgColor = Colors.red.withOpacity(0.2);
+                            bgColor = Colors.green.withOpacity(0.15);
+                            label = "Correct Answer";
+                          }
+
+                          if (isSelected && !isCorrect) {
+                            bgColor = Colors.red.withOpacity(0.15);
+                            label = "Your Answer";
                           }
 
                           return Container(
@@ -194,19 +218,61 @@ class StudentResultScreen extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: bgColor,
                               borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isCorrect
+                                    ? Colors.green
+                                    : (isSelected
+                                    ? Colors.red
+                                    : Colors.grey.shade300),
+                              ),
                             ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (isCorrect)
-                                  const Icon(Icons.check, color: Colors.green),
-                                if (isSelected && !isCorrect)
-                                  const Icon(Icons.close, color: Colors.red),
-                                const SizedBox(width: 8),
-                                Expanded(child: Text(text)),
+                                Row(
+                                  children: [
+                                    if (isCorrect)
+                                      const Icon(Icons.check_circle,
+                                          color: Colors.green),
+                                    if (isSelected && !isCorrect)
+                                      const Icon(Icons.cancel,
+                                          color: Colors.red),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: Text(text)),
+                                  ],
+                                ),
+
+                                if (label.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      label,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isCorrect
+                                            ? Colors.green
+                                            : Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           );
                         }),
+
+                        // ===== SHOW CORRECT ANSWER TEXT =====
+                        if (!isQuestionCorrect)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              "Correct answer: ${options[correctIndex]}",
+                              style: const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   );
