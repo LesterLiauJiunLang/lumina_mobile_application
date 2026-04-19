@@ -10,6 +10,7 @@ import 'package:lumina_mobile_application/view_staff.dart';
 import 'package:lumina_mobile_application/staff_view_all_quiz.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:developer';
+import 'admin_add_staff.dart';
 import 'all_score_quiz_screen.dart';
 import 'model/student.dart';
 import 'model/staff.dart';
