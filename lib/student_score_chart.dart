@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-//s
+
 class StudentScoreChartScreen extends StatefulWidget {
   final String quizId;
   final String quizTitle;
@@ -19,10 +19,10 @@ class StudentScoreChartScreen extends StatefulWidget {
       _StudentScoreChartScreenState();
 }
 
-class _StudentScoreChartScreenState
-    extends State<StudentScoreChartScreen> {
+class _StudentScoreChartScreenState extends State<StudentScoreChartScreen> {
 
-  bool isAscending = true; // ✅ toggle state
+  bool isAscending = true;
+  bool isPieChart = true;
 
   int _percent(int score, int total) {
     if (total <= 0) return 0;
@@ -59,10 +59,7 @@ class _StudentScoreChartScreenState
 
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: widget.studentId == null
-            ? supabase
-            .from('attempts')
-            .select()
-            .eq('quiz_id', widget.quizId)
+            ? supabase.from('attempts').select().eq('quiz_id', widget.quizId)
             : supabase
             .from('attempts')
             .select()
@@ -86,7 +83,7 @@ class _StudentScoreChartScreenState
             );
           }
 
-          // ✅ SORT (by created_at)
+          // SORT
           attempts.sort((a, b) {
             final aDate = DateTime.parse(a['created_at']);
             final bDate = DateTime.parse(b['created_at']);
@@ -95,7 +92,7 @@ class _StudentScoreChartScreenState
                 : bDate.compareTo(aDate);
           });
 
-          // ================= COUNT DISTRIBUTION =================
+          // DISTRIBUTION
           int full = 0, high = 0, mid = 0, low = 0;
 
           for (final a in attempts) {
@@ -114,11 +111,32 @@ class _StudentScoreChartScreenState
             }
           }
 
-          return Padding(
+          int totalAttempts = attempts.length;
+
+          double avgPercent = 0;
+          int highest = 0;
+          int lowest = 100;
+
+          for (final a in attempts) {
+            final score = (a['score'] as int?) ?? 0;
+            final total = (a['total'] as int?) ?? 1;
+
+            final percent = _percent(score, total);
+
+            avgPercent += percent;
+
+            if (percent > highest) highest = percent;
+            if (percent < lowest) lowest = percent;
+          }
+
+          avgPercent = totalAttempts > 0 ? avgPercent / totalAttempts : 0;
+
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+
                 Text(
                   widget.studentId == null
                       ? "Class Performance Overview"
@@ -127,65 +145,92 @@ class _StudentScoreChartScreenState
                       fontSize: 20, fontWeight: FontWeight.bold),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
-                // ================= PIE CHART =================
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      )
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+
+                      _statItem("Attempts", totalAttempts.toString(), Icons.list),
+
+                      _statItem(
+                        "Average",
+                        "${avgPercent.toStringAsFixed(1)}%",
+                        Icons.show_chart,
+                      ),
+
+                      _statItem("Highest", "$highest%", Icons.arrow_upward),
+
+                      _statItem("Lowest", "$lowest%", Icons.arrow_downward),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ================= NEW MODERN CHART =================
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      )
+                    ],
+                    border: Border.all(color: Colors.grey.withOpacity(0.1)),
                   ),
                   child: Column(
                     children: [
-                      const Text(
-                        "Score Distribution",
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 10),
 
-                      SizedBox(
-                        height: 220,
-                        child: PieChart(
-                          PieChartData(
-                            centerSpaceRadius: 45,
-                            sectionsSpace: 2,
-                            sections: [
-                              if (full > 0)
-                                PieChartSectionData(
-                                    value: full.toDouble(),
-                                    color: Colors.green,
-                                    title: "100%"),
-                              if (high > 0)
-                                PieChartSectionData(
-                                    value: high.toDouble(),
-                                    color: Colors.blue,
-                                    title: "80%+"),
-                              if (mid > 0)
-                                PieChartSectionData(
-                                    value: mid.toDouble(),
-                                    color: Colors.orange,
-                                    title: "50%+"),
-                              if (low > 0)
-                                PieChartSectionData(
-                                    value: low.toDouble(),
-                                    color: Colors.red,
-                                    title: "<50%"),
-                            ],
-                          ),
+                      // TOGGLE
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            _chartToggle(true, "Pie", Icons.pie_chart),
+                            _chartToggle(false, "Bar", Icons.bar_chart),
+                          ],
                         ),
                       ),
 
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 25),
 
-                      Wrap(
-                        spacing: 12,
+                      SizedBox(
+                        height: 250,
+                        child: isPieChart
+                            ? _buildScorePie(full, high, mid, low)
+                            : _buildScoreBar(full, high, mid, low),
+                      ),
+
+                      const SizedBox(height: 25),
+
+                      Column(
                         children: [
-                          _legend(Colors.green, "100%: $full"),
-                          _legend(Colors.blue, "80-99%: $high"),
-                          _legend(Colors.orange, "50-79%: $mid"),
-                          _legend(Colors.red, "<50%: $low"),
+                          _legendTile(Colors.green, "100%", full),
+                          _legendTile(Colors.blue, "80 - 99%", high),
+                          _legendTile(Colors.orange, "50 - 79%", mid),
+                          _legendTile(Colors.red, "< 50%", low),
                         ],
                       ),
                     ],
@@ -194,7 +239,7 @@ class _StudentScoreChartScreenState
 
                 const SizedBox(height: 20),
 
-                // ================= HEADER WITH SORT =================
+                // ================= LIST =================
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -203,7 +248,6 @@ class _StudentScoreChartScreenState
                       style: TextStyle(
                           fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-
                     TextButton.icon(
                       onPressed: () {
                         setState(() {
@@ -223,9 +267,9 @@ class _StudentScoreChartScreenState
 
                 const SizedBox(height: 10),
 
-                // ================= LIST =================
-                Expanded(
-                  child: ListView.builder(
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                     itemCount: attempts.length,
                     itemBuilder: (context, i) {
                       final a = attempts[i];
@@ -235,7 +279,6 @@ class _StudentScoreChartScreenState
                       final date = _formatDate(a['created_at']);
                       final p = _percent(score, total);
 
-                      //FIXED NUMBERING
                       final attemptNumber = isAscending
                           ? i + 1
                           : attempts.length - i;
@@ -266,7 +309,6 @@ class _StudentScoreChartScreenState
                       );
                     },
                   ),
-                ),
               ],
             ),
           );
@@ -275,13 +317,206 @@ class _StudentScoreChartScreenState
     );
   }
 
-  Widget _legend(Color color, String text) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+  // ================= TOGGLE =================
+  Widget _chartToggle(bool value, String text, IconData icon) {
+    bool active = isPieChart == value;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => isPieChart = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: active ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: active
+                ? [const BoxShadow(color: Colors.black12, blurRadius: 4)]
+                : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 18,
+                  color: active ? const Color(0xFF005A9C) : Colors.grey),
+              const SizedBox(width: 6),
+              Text(
+                text,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: active ? const Color(0xFF005A9C) : Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ================= PIE =================
+  Widget _buildScorePie(int full, int high, int mid, int low) {
+    final total = full + high + mid + low;
+
+    return PieChart(
+      PieChartData(
+        sectionsSpace: 3,
+        centerSpaceRadius: 50,
+        sections: [
+          if (full > 0) _pieSection(full, total, Colors.green),
+          if (high > 0) _pieSection(high, total, Colors.blue),
+          if (mid > 0) _pieSection(mid, total, Colors.orange),
+          if (low > 0) _pieSection(low, total, Colors.red),
+        ],
+      ),
+    );
+  }
+
+  PieChartSectionData _pieSection(int value, int total, Color color) {
+    final percent = (value / total) * 100;
+
+    return PieChartSectionData(
+      color: color,
+      value: value.toDouble(),
+      title: "${percent.toStringAsFixed(0)}%",
+      radius: 65,
+      titleStyle: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+        fontSize: 12,
+      ),
+    );
+  }
+
+  // ================= BAR =================
+  Widget _buildScoreBar(int full, int high, int mid, int low) {
+    final data = [full, high, mid, low];
+
+    double maxY =
+    data.reduce((a, b) => a > b ? a : b).toDouble();
+    double fixedMaxY = ((maxY / 5).ceil() * 5).toDouble();
+    if (fixedMaxY < 5) fixedMaxY = 5;
+
+    final labels = ["100%", "80+", "50+", "<50"];
+    final colors = [Colors.green, Colors.blue, Colors.orange, Colors.red];
+
+    return BarChart(
+      BarChartData(
+        maxY: fixedMaxY,
+        gridData: const FlGridData(show: false),
+        borderData: FlBorderData(
+          show: true,
+          border: const Border(
+            left: BorderSide(color: Colors.blueGrey, width: 2),
+            bottom: BorderSide(color: Colors.blueGrey, width: 2),
+          ),
+        ),
+        titlesData: FlTitlesData(
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: 5,
+              reservedSize: 30,
+              getTitlesWidget: (value, _) =>
+                  Text(value.toInt().toString()),
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, _) {
+                if (value.toInt() < labels.length) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(labels[value.toInt()]),
+                  );
+                }
+                return const SizedBox();
+              },
+            ),
+          ),
+          topTitles:
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        barGroups: data.asMap().entries.map((entry) {
+          int i = entry.key;
+          double val = entry.value.toDouble();
+
+          return BarChartGroupData(
+            x: i,
+            barRods: [
+              BarChartRodData(
+                toY: val,
+                width: 20,
+                color: colors[i],
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(6),
+                  topRight: Radius.circular(6),
+                ),
+              )
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ================= LEGEND =================
+  Widget _legendTile(Color color, String label, int count) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text(label)),
+          Text(
+            "$count",
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF005A9C),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statItem(String title, String value, IconData icon) {
+    return Column(
       children: [
-        Container(width: 12, height: 12, color: color),
-        const SizedBox(width: 6),
-        Text(text),
+        Icon(icon, color: const Color(0xFF005A9C)),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+        ),
       ],
     );
   }
