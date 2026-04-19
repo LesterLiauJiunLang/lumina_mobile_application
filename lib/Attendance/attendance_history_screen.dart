@@ -7,7 +7,11 @@ import 'student_session_logs.dart';
 
 class AttendanceHistoryScreen extends StatefulWidget {
   final bool isStaff;
-  const AttendanceHistoryScreen({super.key, required this.isStaff});
+
+  const AttendanceHistoryScreen({
+    super.key, 
+    required this.isStaff,
+  });
 
   @override
   State<AttendanceHistoryScreen> createState() => _AttendanceHistoryScreenState();
@@ -19,6 +23,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
   List<Map<String, dynamic>> _courseAttendance = [];
   List<Map<String, dynamic>> _todayRegisteredClasses = [];
   String? _studentId;
+  int _initialTabIndex = 0; 
   
   final Color _mainBlue = const Color(0xFF005A9C);
   final TextEditingController _tokenController = TextEditingController();
@@ -28,13 +33,20 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments;
+    
     if (args is Student) {
       _studentId = args.id;
+      _initialTabIndex = 0; 
+    } else if (args is Map<String, dynamic>) {
+      final student = args['student'] as Student;
+      _studentId = student.id;
+      _initialTabIndex = args['tabIndex'] ?? 0; 
     } else if (args is String) {
       _studentId = args;
     } else {
       _studentId = '26WMR00009';
     }
+    
     _fetchAllData();
   }
 
@@ -154,6 +166,18 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
       final sessionData = await supabase.from('AttendanceSession').select('ID, Date, Course_ID, Course(Name), Schedule:Schedule_ID(StartTime, EndTime)').eq('QR_Token', token).maybeSingle();
       if (sessionData == null) throw 'Invalid Token';
 
+      // Logical Fix: Check if already registered
+      final existingRecord = await supabase
+          .from('AttendanceRecord')
+          .select('ID')
+          .eq('Session_ID', sessionData['ID'])
+          .eq('Student_ID', _studentId!)
+          .maybeSingle();
+
+      if (existingRecord != null) {
+        throw 'Registered Already';
+      }
+
       final enrollment = await supabase.from('Enrollment').select('ID').eq('Course_ID', sessionData['Course_ID']).eq('Student_ID', _studentId!);
       if ((enrollment as List).isEmpty) throw 'Not Enrolled';
 
@@ -191,7 +215,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 3,
-      initialIndex: 1,
+      initialIndex: _initialTabIndex,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Attendance'), backgroundColor: _mainBlue, foregroundColor: Colors.white,
@@ -275,7 +299,6 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  // Circular Progress Indicator instead of Linear
                   Stack(
                     alignment: Alignment.center,
                     children: [
@@ -292,7 +315,6 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
                     ],
                   ),
                   const SizedBox(width: 20),
-                  // Course Info
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,6 +342,11 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
 
   Widget _buildEmptyState(String message, {IconData icon = Icons.info_outline}) {
     return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 64, color: Colors.grey.shade300), const SizedBox(height: 16), Text(message, style: TextStyle(color: Colors.grey.shade500))]));
+  }
+
+  Widget _buildPercentageChip(double p) {
+    Color c = p >= 80 ? Colors.green : Colors.red;
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: c)), child: Text('${p.toStringAsFixed(1)}%', style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 12)));
   }
 }
 

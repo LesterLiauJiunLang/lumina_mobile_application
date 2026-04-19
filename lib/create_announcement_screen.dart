@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'model/staff.dart';
+import 'model/announcement.dart';
 
 class CreateAnnouncementScreen extends StatefulWidget {
   final Staff staff;
-  const CreateAnnouncementScreen({super.key, required this.staff});
+  final Announcement? editAnnouncement;
+
+  const CreateAnnouncementScreen({
+    super.key, 
+    required this.staff,
+    this.editAnnouncement,
+  });
 
   @override
   State<CreateAnnouncementScreen> createState() => _CreateAnnouncementScreenState();
@@ -16,10 +23,11 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
   final _contentController = TextEditingController();
   final supabase = Supabase.instance.client;
   
-  String _selectedType = 'Course'; // 'General', 'Student', 'Staff', 'Course'
+  String _selectedType = 'Course'; 
   String? _selectedCourseId;
   List<Map<String, dynamic>> _courses = [];
   bool _isLoading = false;
+  bool _isCoursesLoading = true; 
   bool _isSuperAdmin = false;
 
   final Color _mainBlue = const Color(0xFF005A9C);
@@ -27,41 +35,61 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
   @override
   void initState() {
     super.initState();
-    // Logic: Only IDs starting with "SU" are Superadmins
     _isSuperAdmin = widget.staff.id.startsWith('SU');
     
-    if (!_isSuperAdmin) {
+    if (widget.editAnnouncement != null) {
+      _titleController.text = widget.editAnnouncement!.title;
+      _contentController.text = widget.editAnnouncement!.content;
+      _selectedType = widget.editAnnouncement!.type;
+      _selectedCourseId = widget.editAnnouncement!.courseId;
+    } else if (!_isSuperAdmin) {
       _selectedType = 'Course';
     }
+    
     _fetchCourses();
   }
 
   Future<void> _fetchCourses() async {
     try {
-      // Start the base query
-      var request = supabase.from('Course').select('ID, Name');
-      
-      // LOGICAL FIX: Reassign the request with the filter to make it stick
-      // If we don't reassign, the filter is calculated but discarded.
+      // 1. Build and filter query
+      var query = supabase.from('Course').select('ID, Name');
       if (!_isSuperAdmin) {
-        request = request.eq('Staff_ID', widget.staff.id);
+        query = query.eq('Staff_ID', widget.staff.id);
       }
       
-      final data = await request;
-      setState(() {
-        _courses = List<Map<String, dynamic>>.from(data);
-        if (_courses.isNotEmpty) {
-          _selectedCourseId = _courses.first['ID'];
+      final data = await query;
+      
+      // 2. Ensure uniqueness (Self-healing for duplicate data)
+      final List<Map<String, dynamic>> uniqueCourses = [];
+      final Set<String> seenIds = {};
+      
+      for (var item in (data as List)) {
+        final id = item['ID']?.toString();
+        if (id != null && !seenIds.contains(id)) {
+          seenIds.add(id);
+          uniqueCourses.add(Map<String, dynamic>.from(item));
         }
+      }
+
+      setState(() {
+        _courses = uniqueCourses;
+        
+        // 3. Verify selected ID exists in the new unique list
+        bool exists = _courses.any((c) => c['ID'] == _selectedCourseId);
+        if (!exists) {
+          _selectedCourseId = _courses.isNotEmpty ? _courses.first['ID'] : null;
+        }
+        
+        _isCoursesLoading = false; 
       });
     } catch (e) {
       debugPrint('Error fetching courses: $e');
+      setState(() => _isCoursesLoading = false);
     }
   }
 
   Future<void> _submitAnnouncement() async {
     if (!_formKey.currentState!.validate()) return;
-    
     if (_selectedType == 'Course' && _selectedCourseId == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a course')));
       return;
@@ -70,17 +98,23 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await supabase.from('Announcement').insert({
+      final payload = {
         'Title': _titleController.text.trim(),
         'Content': _contentController.text.trim(),
         'Type': _selectedType,
         'Course_ID': _selectedType == 'Course' ? _selectedCourseId : null,
         'Created_By': widget.staff.id,
-      });
+      };
+
+      if (widget.editAnnouncement != null) {
+        await supabase.from('Announcement').update(payload).eq('ID', widget.editAnnouncement!.id);
+      } else {
+        await supabase.from('Announcement').insert(payload);
+      }
 
       if (mounted) {
         Navigator.pop(context, true);
-        _showStatusSnackbar('Announcement Posted', true);
+        _showStatusSnackbar(widget.editAnnouncement != null ? 'Update Successful' : 'Announcement Posted', true);
       }
     } catch (e) {
       if (mounted) _showStatusSnackbar('Error: $e', false);
@@ -101,9 +135,14 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    bool isEditing = widget.editAnnouncement != null;
+    
+    // Safety check: The dropdown value MUST be null if the items list is empty or loading
+    final String? dropdownValue = (_isCoursesLoading || _courses.isEmpty) ? null : _selectedCourseId;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Announcement'),
+        title: Text(isEditing ? 'Edit Announcement' : 'New Announcement'),
         backgroundColor: _mainBlue,
         foregroundColor: Colors.white,
       ),
@@ -134,21 +173,23 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
                       const Text('Select Course', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: _selectedCourseId,
+                        key: UniqueKey(), // Force rebuild to prevent stale item errors
+                        value: dropdownValue,
                         isExpanded: true,
+                        hint: Text(_isCoursesLoading ? "Loading courses..." : "Select a course"),
                         decoration: InputDecoration(
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
-                        items: _courses.isEmpty 
-                          ? [const DropdownMenuItem(value: null, child: Text("No assigned courses found"))]
+                        items: _isCoursesLoading 
+                          ? [] 
                           : _courses.map((c) {
                           return DropdownMenuItem<String>(
                             value: c['ID'],
                             child: Text(c['Name'], overflow: TextOverflow.ellipsis),
                           );
                         }).toList(),
-                        onChanged: (val) => setState(() => _selectedCourseId = val),
+                        onChanged: _isCoursesLoading ? null : (val) => setState(() => _selectedCourseId = val),
                         validator: (val) => val == null && _selectedType == 'Course' ? 'Course is required' : null,
                       ),
                       const SizedBox(height: 24),
@@ -185,7 +226,7 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: _submitAnnouncement,
-                        child: const Text('Post Now', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                        child: Text(isEditing ? 'Save Changes' : 'Post Now', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],

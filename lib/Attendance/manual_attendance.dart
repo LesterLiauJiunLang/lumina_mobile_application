@@ -51,12 +51,11 @@ class _ManualAttendanceSheetState extends State<ManualAttendanceSheet> {
         }
       }
 
-      // Fetch students with TutorialGroup
       final enrollmentData = await supabase.from('Enrollment').select('Student(ID, Name, Programme, Faculty, TutorialGroup)').eq('Course_ID', widget.courseId);
       final List enrolledStudents = (enrollmentData as List).map((e) => e['Student']).toList();
 
       final recordsData = await supabase.from('AttendanceRecord').select('Student_ID, Status').eq('Session_ID', _sessionId!);
-      final Map<String, String> attendanceMap = { for (var r in recordsData) r['Student_ID']: r['Status'] };
+      final Map<String, String> attendanceMap = { for (var r in recordsData) r['Student_ID'].toString(): r['Status'].toString() };
 
       final allSessions = await supabase.from('AttendanceSession').select('ID').eq('Course_ID', widget.courseId);
       final List allSessionIds = (allSessions as List).map((s) => s['ID']).toList();
@@ -69,15 +68,15 @@ class _ManualAttendanceSheetState extends State<ManualAttendanceSheet> {
 
       Map<String, int> studentPresentCounts = {};
       for (var r in (allRecords as List)) {
-        if (r['Session_ID'] != _sessionId) {
-          String sId = r['Student_ID'];
+        if (r['Session_ID'].toString() != _sessionId) {
+          String sId = r['Student_ID'].toString();
           studentPresentCounts[sId] = (studentPresentCounts[sId] ?? 0) + 1;
         }
       }
 
       setState(() {
         _students = enrolledStudents.map((s) {
-          final studentId = s['ID'];
+          final studentId = s['ID'].toString();
           final currentStatus = attendanceMap[studentId] ?? 'Absent';
           int otherPresentCount = studentPresentCounts[studentId] ?? 0;
           
@@ -184,13 +183,34 @@ class _ManualAttendanceSheetState extends State<ManualAttendanceSheet> {
   Future<void> _updateAttendance(int indexInFiltered, String newStatus) async {
     final student = _filteredStudents[indexInFiltered];
     final studentId = student['ID'];
+    
     setState(() {
       student['status'] = newStatus;
       final originalIndex = _students.indexWhere((s) => s['ID'] == studentId);
       if (originalIndex != -1) _students[originalIndex]['status'] = newStatus;
     });
+
     if (mounted) _showStatusSnackbar(newStatus == 'Present' ? 'Marked Present' : 'Marked Absent', newStatus == 'Present');
-    try { await supabase.from('AttendanceRecord').upsert({ 'Session_ID': _sessionId, 'Student_ID': studentId, 'Status': newStatus, 'MarkedAt': DateTime.now().toIso8601String() }); } catch (e) { debugPrint('Error: $e'); }
+
+    try { 
+      if (newStatus == 'Present') {
+        // MARK AS PRESENT: Create or Update record
+        await supabase.from('AttendanceRecord').upsert({ 
+          'Session_ID': _sessionId, 
+          'Student_ID': studentId, 
+          'Status': 'Present', 
+          'MarkedAt': DateTime.now().toIso8601String() 
+        });
+      } else {
+        // REVOKE: Delete record from database so student is truly Absent
+        await supabase.from('AttendanceRecord')
+            .delete()
+            .eq('Session_ID', _sessionId!)
+            .eq('Student_ID', studentId);
+      }
+    } catch (e) { 
+      debugPrint('Update error: $e'); 
+    }
   }
 
   Future<void> _markAllPresent() async {

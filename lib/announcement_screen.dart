@@ -63,7 +63,7 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
 
       } else {
         final staff = widget.user as Staff;
-        bool isSuperAdmin = staff.jobTitle?.toLowerCase() == 'superadmin';
+        bool isSuperAdmin = staff.id.startsWith('SU');
 
         if (isSuperAdmin) {
           data = await supabase
@@ -89,10 +89,97 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
     }
   }
 
+  void _showOptions(Announcement ann) {
+    if (widget.user is! Staff) return;
+    final staff = widget.user as Staff;
+    bool isSuperAdmin = staff.id.startsWith('SU');
+    bool isCreator = ann.createdBy == staff.id;
+
+    if (!isSuperAdmin && !isCreator) return;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.edit, color: Colors.blue),
+            title: const Text('Edit Announcement'),
+            onTap: () {
+              Navigator.pop(context);
+              _editAnnouncement(ann);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: Colors.red),
+            title: const Text('Delete Announcement'),
+            onTap: () {
+              Navigator.pop(context);
+              _confirmDelete(ann);
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editAnnouncement(Announcement ann) async {
+    // FIX: Passing both staff and the announcement correctly in a Map
+    final result = await Navigator.pushNamed(context, '/create_announcement', arguments: {
+      'staff': widget.user as Staff,
+      'editAnnouncement': ann,
+    });
+    if (result == true) {
+      setState(() => _isLoading = true);
+      _fetchAnnouncements();
+    }
+  }
+
+  void _confirmDelete(Announcement ann) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete?'),
+        content: const Text('Are you sure you want to remove this announcement?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteAnnouncement(ann.id);
+            }, 
+            child: const Text('Delete', style: TextStyle(color: Colors.red))
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteAnnouncement(String id) async {
+    try {
+      await supabase.from('Announcement').delete().eq('ID', id);
+      _showStatusSnackbar('Announcement Deleted', true);
+      _fetchAnnouncements();
+    } catch (e) {
+      _showStatusSnackbar('Delete Failed: $e', false);
+    }
+  }
+
+  void _showStatusSnackbar(String message, bool isSuccess) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: isSuccess ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+        behavior: SnackBarBehavior.floating,
+        content: Text(message),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Check if user is Staff - Any staff can post (Lecturers to their classes, Admins to all)
-    bool canPost = widget.user is Staff;
+    bool isStaff = widget.user is Staff;
 
     return Scaffold(
       appBar: AppBar(
@@ -103,20 +190,13 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
           controller: _tabController,
           indicatorColor: Colors.white,
           labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: 'Official'),
-            Tab(text: 'Classes'),
-          ],
+          unselectedLabelColor: Colors.white54,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+          tabs: const [Tab(text: 'OFFICIAL'), Tab(text: 'CLASSES')],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() => _isLoading = true);
-              _fetchAnnouncements();
-            },
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: () => _fetchAnnouncements()),
         ],
       ),
       body: _isLoading
@@ -128,14 +208,11 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
                 _buildAnnouncementList(_announcements.where((a) => a.type == 'Course').toList()),
               ],
             ),
-      floatingActionButton: canPost
+      floatingActionButton: isStaff
           ? FloatingActionButton(
               onPressed: () async {
                 final result = await Navigator.pushNamed(context, '/create_announcement', arguments: widget.user);
-                if (result == true) {
-                  setState(() => _isLoading = true);
-                  _fetchAnnouncements();
-                }
+                if (result == true) _fetchAnnouncements();
               },
               backgroundColor: _mainBlue,
               child: const Icon(Icons.add, color: Colors.white),
@@ -145,108 +222,62 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
   }
 
   Widget _buildAnnouncementList(List<Announcement> list) {
-    if (list.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.campaign_outlined, size: 80, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            const Text('No announcements found', style: TextStyle(color: Colors.grey, fontSize: 16)),
-          ],
-        ),
-      );
-    }
+    if (list.isEmpty) return const Center(child: Text('No announcements found'));
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: list.length,
       itemBuilder: (context, index) {
         final ann = list[index];
+        bool isStaff = widget.user is Staff;
         
-        Color headerColor;
-        String label;
-        IconData icon;
-
-        switch (ann.type) {
-          case 'General':
-            headerColor = Colors.orange[900]!;
-            label = 'OFFICIAL';
-            icon = Icons.public;
-            break;
-          case 'Student':
-            headerColor = Colors.teal[700]!;
-            label = 'FOR STUDENTS';
-            icon = Icons.school;
-            break;
-          case 'Staff':
-            headerColor = Colors.purple[700]!;
-            label = 'FOR STAFF';
-            icon = Icons.badge;
-            break;
-          default:
-            headerColor = _mainBlue;
-            label = ann.courseName ?? 'CLASS UPDATE';
-            icon = Icons.book_outlined;
-        }
-        
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: headerColor.withOpacity(0.1),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
+        return InkWell(
+          onLongPress: isStaff ? () => _showOptions(ann) : null,
+          child: Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildCardHeader(ann),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(ann.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text(ann.content, style: TextStyle(fontSize: 14, color: Colors.grey[800])),
+                    ],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(icon, size: 16, color: headerColor),
-                    const SizedBox(width: 8),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: headerColor,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      DateFormat('MMM dd, yyyy').format(DateTime.parse(ann.createdAt)),
-                      style: const TextStyle(fontSize: 10, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ann.title,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      ann.content,
-                      style: TextStyle(fontSize: 14, color: Colors.grey[800], height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCardHeader(Announcement ann) {
+    Color color;
+    String label;
+    switch (ann.type) {
+      case 'General': color = Colors.orange[900]!; label = 'OFFICIAL'; break;
+      case 'Student': color = Colors.teal[700]!; label = 'STUDENTS'; break;
+      case 'Staff': color = Colors.purple[700]!; label = 'STAFF'; break;
+      default: color = _mainBlue; label = ann.courseName ?? 'CLASS';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
+      child: Row(
+        children: [
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+          const Spacer(),
+          Text(DateFormat('MMM dd').format(DateTime.parse(ann.createdAt)), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        ],
+      ),
     );
   }
 }
