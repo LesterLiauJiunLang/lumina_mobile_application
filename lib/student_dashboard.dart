@@ -91,12 +91,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       '/student_dashboard_quiz',
                       student),
 
-                  _buildMenuCard(context, "Results",
-                      Icons.star_border,
-                      const Color(0xFFE0F2F1),
-                      Colors.teal,
-                      'coming_soon',
-                      student),
+                  _buildMenuCard(
+                      context,
+                      "My QR Code",
+                      Icons.qr_code,
+                      const Color(0xFFE8F5E9),
+                      Colors.green,
+                      '/show_qr_profile', // Add this route in your main.dart
+                      student
+                  ),
 
                   _buildMenuCard(context, "Announcements",
                       Icons.campaign,
