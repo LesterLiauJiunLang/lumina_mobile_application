@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lumina_mobile_application/staff_create_quiz.dart';
 import 'package:lumina_mobile_application/staff_dashboard_quiz.dart';
 import 'package:lumina_mobile_application/staff_directory.dart';
+import 'package:lumina_mobile_application/staff_distribution_chart.dart';
 import 'package:lumina_mobile_application/staff_view_all_quiz.dart';
+import 'package:lumina_mobile_application/student_directory.dart';
 import 'package:lumina_mobile_application/update_staff.dart';
 import 'package:lumina_mobile_application/view_staff.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -63,6 +65,7 @@ class CampusApp extends StatelessWidget {
         '/staff_dashboard': (context) => const StaffDashboard(),
         '/staff_profile': (context) => const StaffProfilePage(),
         '/staff_directory': (context) => const StaffDirectoryPage(),
+        '/student_directory': (context) => const StudentDirectoryPage(),
         '/admin_add_staff': (context) => const AdminAddStaffPage(),
         '/view_staff': (context) => const ViewStaffPage(),
         '/student_dashboard_quiz' : (context) => const StudentDashboardQuiz(),

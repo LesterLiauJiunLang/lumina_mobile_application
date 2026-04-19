@@ -55,11 +55,8 @@ class _StaffDashboardState extends State<StaffDashboard> {
                   ),
                   const SizedBox(height: 12),
 
-                  _buildMenuButton(context, "Student Management",
-                      Icons.people_alt_outlined, '/view_user'),
-
-                  _buildMenuButton(context, "Register New Student",
-                      Icons.person_add_alt_1_outlined, '/register_student'),
+                  _buildMenuButton(context, "Student Directory",
+                      Icons.people_alt_outlined, '/student_directory'),
 
                   _buildMenuButton(context, "Staff Directory",
                       Icons.badge_outlined, '/staff_directory'),
@@ -232,7 +229,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
               borderRadius: BorderRadius.circular(30)),
         ),
         onPressed: () => Navigator.pushNamedAndRemoveUntil(
-            context, '/login', (route) => false),
+            context, '/', (route) => false),
         icon: const Icon(Icons.logout, color: Colors.red, size: 20),
         label: const Text("Sign Out",
             style: TextStyle(
@@ -253,12 +250,14 @@ class _StaffDashboardState extends State<StaffDashboard> {
 
         if (i == 1) {
           // 1. If "Student" is clicked, send them to login to switch roles
-          Navigator.pushNamed(context, '/login');
+          Navigator.pushNamed(context, '/login', arguments: 'Student');
         } if (i == 0) {
           // If you want Home (index 0) to be accessible
           Navigator.pushNamed(context, '/');
-        } else {
-          // 3. Logic for Alumni (3) if you have those pages
+        }else if (i == 3) {
+          _showComingSoonSnackBar("Alumni");
+        }
+        else {
           setState(() => _selectedIndex = i);
         }
       },
@@ -272,6 +271,57 @@ class _StaffDashboardState extends State<StaffDashboard> {
         BottomNavigationBarItem(
             icon: Icon(Icons.school_outlined), label: "Alumni"),
       ],
+    );
+  }
+
+  void _showComingSoonSnackBar(String portalName) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.transparent,
+        content: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF005A9C), // Primary Blue
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: Colors.orangeAccent, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "$portalName Portal",
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14),
+                    ),
+                    const Text(
+                      "This feature is currently in progress!",
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:lumina_mobile_application/staff_distribution_chart.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'admin_add_staff.dart';
 import 'view_staff.dart';
@@ -160,6 +161,58 @@ class _StaffDirectoryPageState extends State<StaffDirectoryPage> {
                             MaterialPageRoute(builder: (context) => const AdminAddStaffPage())
                         );
                         if (result == true) _fetchRealStats(); // Refresh if new staff added
+                      },
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    // --- ADDED ANALYTICS CARD ---
+                    _buildMenuCard(
+                      context,
+                      title: "Staff Analytics",
+                      subtitle: "View Management vs Academic distribution",
+                      icon: Icons.pie_chart_outline,
+                      color: Colors.orange[800]!,
+                      onTap: () async {
+                        // Show a loading indicator while fetching data for the chart
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => const Center(child: CircularProgressIndicator()),
+                        );
+
+                        try {
+                          // Fetch the staff data to pass to the chart
+                          final List<dynamic> data = await supabase.from('Staff').select('JobTitle');
+
+                          if (mounted) {
+                            Navigator.pop(context); // Close loading indicator
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => Scaffold(
+                                  appBar: AppBar(
+                                    title: const Text(
+                                        "Staff Distribution",
+                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+                                    ),
+                                    backgroundColor: const Color(0xFF005A9C),
+                                    iconTheme: const IconThemeData(color: Colors.white),
+                                  ),
+                                  // CHANGE THIS LINE BELOW:
+                                  body: StaffDistributionChart(staffList: data),
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Error loading analytics: $e")),
+                            );
+                          }
+                        }
                       },
                     ),
 
