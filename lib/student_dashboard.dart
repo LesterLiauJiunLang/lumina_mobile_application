@@ -79,7 +79,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
                   _buildMenuCard(context, "Examination",
                       Icons.assignment_outlined,
-                      const Color(0xFFF3E5F5), Colors.purple, '/examination', student),
+                      const Color(0xFFF3E5F5),
+                      Colors.purple,
+                      'coming_soon',
+                      student),
 
                   _buildMenuCard(context, "My Quizzes",
                       Icons.help_center_outlined,
@@ -88,8 +91,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       '/student_dashboard_quiz',
                       student),
 
-                  _buildMenuCard(context, "Results", Icons.star_border,
-                      const Color(0xFFE0F2F1), Colors.teal, '/results', student),
+                  _buildMenuCard(context, "Results",
+                      Icons.star_border,
+                      const Color(0xFFE0F2F1),
+                      Colors.teal,
+                      'coming_soon',
+                      student),
 
                   _buildMenuCard(context, "Announcements",
                       Icons.campaign,
@@ -249,8 +256,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
   Widget _buildMenuCard(BuildContext context, String title, IconData icon,
       Color bgColor, Color iconColor, String route, Student student) {
     return GestureDetector(
-      onTap: () =>
-          Navigator.pushNamed(context, route, arguments: student),
+      onTap: () {
+        // ADD THIS LOGIC BLOCK
+        if (route == 'coming_soon') {
+          _showComingSoonSnackBar(title);
+        } else {
+          Navigator.pushNamed(context, route, arguments: student);
+        }
+      },
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
