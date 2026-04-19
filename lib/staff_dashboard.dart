@@ -81,7 +81,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
 
 
                 _buildMenuButton(context, "My Teaching Classes",
-                    Icons.menu_book_outlined, '/staff_classes'),
+                    Icons.menu_book_outlined, '/staff_timetable', args: staff),
 
                 _buildMenuButton(context, "Student Attendance",
                     Icons.fact_check_outlined, '/attendance', args: staff),

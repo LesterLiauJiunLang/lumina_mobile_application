@@ -28,6 +28,7 @@ import 'Attendance/attendance_history_screen.dart';
 import 'Attendance/student_attendance_scanner.dart';
 import 'Attendance/staff_attendance.dart';
 import 'Timetable/timetable_screen.dart';
+import 'Timetable/staff_timetable_screen.dart';
 import 'announcement_screen.dart';
 import 'create_announcement_screen.dart';
 
@@ -68,6 +69,10 @@ class CampusApp extends StatelessWidget {
         '/profile': (context) => const ProfilePage(),
         '/staff_dashboard': (context) => const StaffDashboard(),
         '/staff_profile': (context) => const StaffProfilePage(),
+        '/staff_timetable': (context) {
+          final staff = ModalRoute.of(context)!.settings.arguments as Staff;
+          return StaffTimetableScreen(staffId: staff.id);
+        },
         '/staff_directory': (context) => const StaffDirectoryPage(),
         '/student_directory': (context) => const StudentDirectoryPage(),
         '/admin_add_staff': (context) => const AdminAddStaffPage(),
