@@ -7,13 +7,13 @@ import 'package:lumina_mobile_application/staff_view_all_quiz.dart';
 import 'package:lumina_mobile_application/student_directory.dart';
 import 'package:lumina_mobile_application/update_staff.dart';
 import 'package:lumina_mobile_application/view_staff.dart';
-import 'package:lumina_mobile_application/staff_view_all_quiz.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:developer';
 import 'admin_add_staff.dart';
 import 'all_score_quiz_screen.dart';
 import 'model/student.dart';
 import 'model/staff.dart';
+import 'model/announcement.dart';
 import 'home.dart';
 import 'login.dart';
 import 'view_user.dart';
@@ -83,8 +83,15 @@ class CampusApp extends StatelessWidget {
           return AnnouncementScreen(user: user);
         },
         '/create_announcement': (context) {
-          final staff = ModalRoute.of(context)!.settings.arguments as Staff;
-          return CreateAnnouncementScreen(staff: staff);
+          final args = ModalRoute.of(context)!.settings.arguments;
+          if (args is Map<String, dynamic>) {
+            return CreateAnnouncementScreen(
+              staff: args['staff'] as Staff,
+              editAnnouncement: args['editAnnouncement'] as Announcement,
+            );
+          } else {
+            return CreateAnnouncementScreen(staff: args as Staff);
+          }
         },
         '/timetable': (context) {
           final student = ModalRoute.of(context)!.settings.arguments as Student;

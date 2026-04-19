@@ -113,19 +113,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
       /// BOTTOM NAV
       bottomNavigationBar: _buildBottomNav(),
-
-      /// FLOATING BUTTON
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(
-            context,
-            '/attendance_scanner',
-            arguments: student,
-          );
-        },
-        backgroundColor: const Color(0xFF005A9C),
-        child: const Icon(Icons.qr_code_scanner, color: Colors.white),
-      ),
+      
+      // REMOVED FLOATING ACTION BUTTON
     );
   }
 
@@ -257,7 +246,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
       Color bgColor, Color iconColor, String route, Student student) {
     return GestureDetector(
       onTap: () {
-        // ADD THIS LOGIC BLOCK
         if (route == 'coming_soon') {
           _showComingSoonSnackBar(title);
         } else {

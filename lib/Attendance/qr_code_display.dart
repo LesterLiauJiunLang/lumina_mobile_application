@@ -42,7 +42,7 @@ class _QRCodeDisplayState extends State<QRCodeDisplay> {
   DateTime _parseTime(String timeStr) {
     final now = DateTime.now();
     final parts = timeStr.split(':');
-    return DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
+    return DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]), parts.length > 2 ? int.parse(parts[2]) : 0);
   }
 
   Future<void> _checkScheduleAndGenerate() async {
@@ -51,26 +51,39 @@ class _QRCodeDisplayState extends State<QRCodeDisplay> {
       final dayName = DateFormat('EEEE').format(now).toUpperCase();
       final todayDate = DateFormat('yyyy-MM-dd').format(now);
 
-      final scheduleData = await supabase.from('Schedule').select().eq('Course_ID', widget.courseId).eq('DayOfWeek', dayName);
+      final List<dynamic> scheduleData = await supabase.from('Schedule').select().eq('Course_ID', widget.courseId).eq('DayOfWeek', dayName);
 
-      final currentSlot = (scheduleData as List).firstWhere(
-            (slot) {
-          final startTime = _parseTime(slot['StartTime']);
-          final endTime = _parseTime(slot['EndTime']);
-          final allowFrom = startTime.subtract(const Duration(minutes: 30));
-          return now.isAfter(allowFrom) && now.isBefore(endTime);
-        },
-        orElse: () => null,
-      );
+      Map<String, dynamic>? currentSlot;
+      
+      for (var slot in scheduleData) {
+        final startTime = _parseTime(slot['StartTime']);
+        final endTime = _parseTime(slot['EndTime']);
+        // Allow generation 30 mins before class starts until it ends
+        final allowFrom = startTime.subtract(const Duration(minutes: 30));
+        
+        if (now.isAfter(allowFrom) && now.isBefore(endTime)) {
+          currentSlot = Map<String, dynamic>.from(slot);
+          break;
+        }
+      }
 
       if (currentSlot == null) {
-        setState(() { _error = "Access Denied: You can only generate a QR code 30 minutes before or during the scheduled class time."; _isGenerating = false; });
+        setState(() { 
+          _error = "Access Denied: No active session found. You can only generate a QR code during scheduled class time."; 
+          _isGenerating = false; 
+        });
         return;
       }
 
       _currentSchedule = currentSlot;
 
-      final existingSession = await supabase.from('AttendanceSession').select().eq('Course_ID', widget.courseId).eq('Date', todayDate).eq('Schedule_ID', currentSlot['ID']).maybeSingle();
+      final existingSession = await supabase
+          .from('AttendanceSession')
+          .select()
+          .eq('Course_ID', widget.courseId)
+          .eq('Date', todayDate)
+          .eq('Schedule_ID', currentSlot['ID'])
+          .maybeSingle();
 
       if (existingSession != null) {
         _qrToken = existingSession['QR_Token'];
@@ -85,7 +98,11 @@ class _QRCodeDisplayState extends State<QRCodeDisplay> {
       final token = List.generate(6, (index) => random.nextInt(10)).join();
 
       await supabase.from('AttendanceSession').insert({
-        'Course_ID': widget.courseId, 'QR_Token': token, 'CreatedBy': widget.staffId, 'Date': todayDate, 'Schedule_ID': currentSlot['ID'],
+        'Course_ID': widget.courseId, 
+        'QR_Token': token, 
+        'CreatedBy': widget.staffId, 
+        'Date': todayDate, 
+        'Schedule_ID': currentSlot['ID'],
       });
 
       _qrToken = token;
@@ -93,47 +110,27 @@ class _QRCodeDisplayState extends State<QRCodeDisplay> {
         await _launchEmail(_qrToken!);
       }
       setState(() { _isGenerating = false; });
-    } catch (e) { setState(() { _error = "Error: $e"; _isGenerating = false; }); }
+    } catch (e) { 
+      debugPrint('Generation Error: $e');
+      setState(() { _error = "System Error: $e"; _isGenerating = false; }); 
+    }
   }
 
   Future<void> _launchEmail(String token) async {
     try {
-      // 1. Fetch enrolled students' emails
-      final enrollmentData = await supabase
-          .from('Enrollment')
-          .select('Student(Email)')
-          .eq('Course_ID', widget.courseId);
-      
-      final emails = (enrollmentData as List)
-          .map((e) => e['Student']?['Email']?.toString())
-          .where((email) => email != null && email.isNotEmpty)
-          .join(',');
+      final enrollmentData = await supabase.from('Enrollment').select('Student(Email)').eq('Course_ID', widget.courseId);
+      final emails = (enrollmentData as List).map((e) => e['Student']?['Email']?.toString()).where((email) => email != null && email.isNotEmpty).join(',');
 
-      if (emails.isEmpty) {
-        debugPrint('No student emails found.');
-        return;
-      }
+      if (emails.isEmpty) return;
 
-      // 2. Format email URI
-      final String subject = Uri.encodeComponent('Attendance Token for ${widget.courseName}');
-      final String body = Uri.encodeComponent(
-        'Hello Students,\n\n'
-        'The attendance token for today\'s ${widget.courseName} class is:\n\n'
-        '$token\n\n'
-        'Please enter this token in the Lumina app to mark your attendance.\n\n'
-        'Regards,\nLecturer'
-      );
-
+      final String subject = Uri.encodeComponent('Attendance Token: ${widget.courseName}');
+      final String body = Uri.encodeComponent('Token for today: $token');
       final Uri emailUri = Uri.parse('mailto:$emails?subject=$subject&body=$body');
 
       if (await canLaunchUrl(emailUri)) {
         await launchUrl(emailUri);
-      } else {
-        debugPrint('Could not launch email app.');
       }
-    } catch (e) {
-      debugPrint('Email error: $e');
-    }
+    } catch (e) { debugPrint('Email error: $e'); }
   }
 
   @override
@@ -148,7 +145,7 @@ class _QRCodeDisplayState extends State<QRCodeDisplay> {
               : _error != null
               ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.lock_clock, size: 80, color: Colors.redAccent), const SizedBox(height: 16), const Text('Time Restriction', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)), const SizedBox(height: 12), Text(_error!, textAlign: TextAlign.center), const SizedBox(height: 32), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: _mainBlue, foregroundColor: Colors.white), onPressed: () => Navigator.pop(context), child: const Text('Go Back'))])
               : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Text(widget.courseName, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _mainBlue)),
+            Text(widget.courseName, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _mainBlue), textAlign: TextAlign.center),
             const SizedBox(height: 8),
             Text('Scheduled: ${_currentSchedule!['StartTime']} - ${_currentSchedule!['EndTime']}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
             const SizedBox(height: 40),
@@ -163,9 +160,9 @@ class _QRCodeDisplayState extends State<QRCodeDisplay> {
               const SizedBox(height: 24), 
               const Text('Email Ready!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)), 
               const SizedBox(height: 12),
-              const Text('Opening your email app to send the token to all enrolled students.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+              const Text('Opening email app...', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
               const SizedBox(height: 40), 
-              ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: _mainBlue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))), onPressed: () => Navigator.pop(context), child: const Text('Return to Dashboard'))
+              ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: _mainBlue, foregroundColor: Colors.white), onPressed: () => Navigator.pop(context), child: const Text('Back to Dashboard'))
             ],
           ]),
         ),
