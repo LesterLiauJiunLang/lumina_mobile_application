@@ -70,6 +70,9 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _handleLogin() async {
+    // 1. Identify which portal was selected
+    final String selectedRole = (ModalRoute.of(context)!.settings.arguments as String?) ?? "Student";
+
     String input = _idController.text.trim().toUpperCase();
     String password = _passwordController.text.trim();
 
@@ -79,45 +82,45 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     setState(() => _isLoading = true);
-    String finalId = input;
-
-    // Student ID transformation logic (keeping your existing logic)
-    if (input.length == 7 && !input.contains('WMR')) {
-      finalId = "${input.substring(0, 2)}WMR${input.substring(2)}";
-    }
 
     try {
-      // 1. TRY LOGIN AS STUDENT
-      final studentRes = await supabase
-          .from('Student')
-          .select()
-          .eq('ID', finalId)
-          .eq('Password', password)
-          .maybeSingle();
+      if (selectedRole == 'Student') {
+        // --- ONLY CHECK STUDENT TABLE ---
+        String finalId = input;
+        if (input.length == 7 && !input.contains('WMR')) {
+          finalId = "${input.substring(0, 2)}WMR${input.substring(2)}";
+        }
 
-      if (studentRes != null) {
-        final user = Student.fromJson(studentRes);
-        _proceedToDashboard('/student_dashboard', user);
-        return;
-      }
+        final res = await supabase
+            .from('Student')
+            .select()
+            .eq('ID', finalId)
+            .eq('Password', password)
+            .maybeSingle();
 
-      // 2. IF NOT STUDENT, TRY LOGIN AS STAFF
-      final staffRes = await supabase
-          .from('Staff') // Make sure your table name is 'Staff'
-          .select()
-          .eq('ID', input) // Staff might not use the WMR transformation
-          .eq('Password', password)
-          .maybeSingle();
-
-      if (staffRes != null) {
-        final staffUser = Staff.fromJson(staffRes);
-        _proceedToDashboard('/staff_dashboard', staffUser);
+        if (res != null) {
+          _proceedToDashboard('/student_dashboard', Student.fromJson(res));
+        } else {
+          _showStatusSnackbar("Access Denied", "Invalid Student credentials.", false);
+        }
 
       } else {
-        _showStatusSnackbar("Login Failed", "Invalid ID or Password.", false);
+        // --- ONLY CHECK STAFF TABLE ---
+        final res = await supabase
+            .from('Staff')
+            .select()
+            .eq('ID', input)
+            .eq('Password', password)
+            .maybeSingle();
+
+        if (res != null) {
+          _proceedToDashboard('/staff_dashboard', Staff.fromJson(res));
+        } else {
+          _showStatusSnackbar("Access Denied", "Invalid Staff credentials.", false);
+        }
       }
     } catch (e) {
-      _showStatusSnackbar("Error", "System error: $e", false);
+      _showStatusSnackbar("Error", "Connection error: $e", false);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -135,6 +138,9 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Catch the role (Student or Staff). Default to 'Student' if null.
+    final String selectedRole = (ModalRoute.of(context)!.settings.arguments as String?) ?? "Student";
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -150,12 +156,17 @@ class _LoginPageState extends State<LoginPage> {
             }
           },
         ),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.lock_outline, color: Colors.white),
-            SizedBox(width: 10),
-            Text('Login',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const Icon(Icons.lock_outline, color: Colors.white),
+            const SizedBox(width: 10),
+            Text(
+              '$selectedRole Login',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold
+              ),
+            ),
           ],
         ),
       ),
