@@ -284,7 +284,7 @@ class _RegisterStudentPageState extends State<RegisterStudentPage> {
       // Middle char is always 'M' as requested
       String levelChar = "M";
       // Last char is 'R' for Degree, 'D' for Diploma
-      String typeChar = (_selectedProgramme!.contains("Diploma")) ? "D" : "R";
+      String typeChar = _selectedProgramme!.contains("Foundation") ? "P" : (_selectedProgramme!.contains("Diploma") ? "D" : "R");
 
       String idPrefix = "$yearDigit$campusChar$levelChar$typeChar"; // e.g., 26WMR
 
