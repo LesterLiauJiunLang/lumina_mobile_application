@@ -39,7 +39,6 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
       
       if (widget.user is Student) {
         final student = widget.user as Student;
-        // 1. Get courses student is enrolled in
         final enrollmentRes = await supabase
             .from('Enrollment')
             .select('Course_ID')
@@ -49,13 +48,11 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
             .map((e) => e['Course_ID'].toString())
             .toList();
 
-        // 2. Fetch General, Student, and Course announcements (filtered)
         String filter;
         if (courseIds.isEmpty) {
           filter = 'Type.eq.General,Type.eq.Student';
         } else {
-          // or(Type.eq.General,Type.eq.Student,Course_ID.in.(CS001,CS002))
-          filter = 'Type.eq.General,Type.eq.Student,Course_ID.in.(${courseIds.join(",")})';
+          filter = 'Type.eq.General,Type.eq.Student,Course_ID.in.("${courseIds.join('","')}")';
         }
 
         data = await supabase
@@ -65,18 +62,15 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
             .order('Created_At', ascending: false);
 
       } else {
-        // Staff view
         final staff = widget.user as Staff;
         bool isSuperAdmin = staff.jobTitle?.toLowerCase() == 'superadmin';
 
         if (isSuperAdmin) {
-          // Superadmins see everything
           data = await supabase
               .from('Announcement')
               .select('*, Course:Course_ID(Name)')
               .order('Created_At', ascending: false);
         } else {
-          // Regular staff see General, Staff, and Course announcements they created
           data = await supabase
               .from('Announcement')
               .select('*, Course:Course_ID(Name)')
@@ -97,14 +91,8 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    bool isStaff = widget.user is Staff;
-    bool canPost = false;
-    if (isStaff) {
-      final staff = widget.user as Staff;
-      canPost = staff.jobTitle?.toLowerCase() == 'superadmin' || 
-                staff.jobTitle?.toLowerCase().contains('lecturer') == true ||
-                staff.jobTitle?.toLowerCase().contains('tutor') == true;
-    }
+    // Check if user is Staff - Any staff can post (Lecturers to their classes, Admins to all)
+    bool canPost = widget.user is Staff;
 
     return Scaffold(
       appBar: AppBar(
@@ -136,9 +124,7 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
           : TabBarView(
               controller: _tabController,
               children: [
-                // Tab 1: Official (General, Student, Staff)
                 _buildAnnouncementList(_announcements.where((a) => a.type != 'Course').toList()),
-                // Tab 2: Classes (Course)
                 _buildAnnouncementList(_announcements.where((a) => a.type == 'Course').toList()),
               ],
             ),
@@ -177,7 +163,6 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
       itemCount: list.length,
       itemBuilder: (context, index) {
         final ann = list[index];
-        final bool isCourse = ann.type == 'Course';
         
         Color headerColor;
         String label;
@@ -199,7 +184,7 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
             label = 'FOR STAFF';
             icon = Icons.badge;
             break;
-          default: // Course
+          default:
             headerColor = _mainBlue;
             label = ann.courseName ?? 'CLASS UPDATE';
             icon = Icons.book_outlined;

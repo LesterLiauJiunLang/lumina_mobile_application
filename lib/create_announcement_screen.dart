@@ -27,19 +27,27 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
   @override
   void initState() {
     super.initState();
-    _isSuperAdmin = widget.staff.jobTitle?.toLowerCase() == 'superadmin';
+    // Logic: Only IDs starting with "SU" are Superadmins
+    _isSuperAdmin = widget.staff.id.startsWith('SU');
+    
+    if (!_isSuperAdmin) {
+      _selectedType = 'Course';
+    }
     _fetchCourses();
   }
 
   Future<void> _fetchCourses() async {
     try {
-      final query = supabase.from('Course').select('ID, Name');
-      // If not superadmin, only get their own courses
+      // Start the base query
+      var request = supabase.from('Course').select('ID, Name');
+      
+      // LOGICAL FIX: Reassign the request with the filter to make it stick
+      // If we don't reassign, the filter is calculated but discarded.
       if (!_isSuperAdmin) {
-        query.eq('Staff_ID', widget.staff.id);
+        request = request.eq('Staff_ID', widget.staff.id);
       }
       
-      final data = await query;
+      final data = await request;
       setState(() {
         _courses = List<Map<String, dynamic>>.from(data);
         if (_courses.isNotEmpty) {
@@ -132,14 +140,16 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
-                        items: _courses.map((c) {
+                        items: _courses.isEmpty 
+                          ? [const DropdownMenuItem(value: null, child: Text("No assigned courses found"))]
+                          : _courses.map((c) {
                           return DropdownMenuItem<String>(
                             value: c['ID'],
                             child: Text(c['Name'], overflow: TextOverflow.ellipsis),
                           );
                         }).toList(),
                         onChanged: (val) => setState(() => _selectedCourseId = val),
-                        validator: (val) => val == null ? 'Course is required' : null,
+                        validator: (val) => val == null && _selectedType == 'Course' ? 'Course is required' : null,
                       ),
                       const SizedBox(height: 24),
                     ],
