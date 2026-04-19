@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -163,6 +165,40 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ],
+        ),
+      ),
+      // --- ADDED SCANNER BUTTON ---
+      floatingActionButton: GestureDetector(
+        onTap: _openBeautifulScanner, // Calls the beautiful version
+        child: Container(
+          height: 60,
+          width: 140,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF005A9C), Color(0xFF00A2E8)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF005A9C).withOpacity(0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.qr_code_scanner_rounded, color: Colors.white),
+              SizedBox(width: 8),
+              Text(
+                "SCAN ID",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: _buildBottomNav(),
@@ -337,4 +373,343 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _openBeautifulScanner() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        // Use a StateSetter for the sheet to trigger "Red" error state
+        return StatefulBuilder(builder: (context, setSheetState) {
+          bool isError = false;
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            decoration: const BoxDecoration(
+              color: Color(0xFF0D1117), // Deep space blue/black
+              borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
+            ),
+            child: Stack(
+              children: [
+                // A: THE CUSTOM GRID DESIGN BACKGROUND
+                Positioned.fill(
+                  child: CustomPaint(painter: _ScannerBackgroundPainter()),
+                ),
+
+                Column(
+                  children: [
+                    const SizedBox(height: 15),
+                    Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(10))),
+                    const SizedBox(height: 30),
+                    Text(
+                      isError ? "INVALID QR CODE" : "STUDENT ID VERIFICATION",
+                      style: TextStyle(
+                          color: isError ? Colors.redAccent : Colors.white,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      isError ? "Please try again with a valid student ID" : "Align the student QR code within the frame",
+                      style: TextStyle(color: isError ? Colors.redAccent.withOpacity(0.7) : Colors.white54, fontSize: 12),
+                    ),
+                    const Spacer(),
+
+                    // B: THE SCANNER BOX WITH VIBRATE EFFECT
+                    Center(
+                      child: TweenAnimationBuilder(
+                        // If error, shake the box slightly
+                        tween: Tween<double>(begin: 0, end: isError ? 10 : 0),
+                        duration: const Duration(milliseconds: 300),
+                        builder: (context, double offset, child) {
+                          return Transform.translate(
+                            offset: Offset(offset, 0),
+                            child: child,
+                          );
+                        },
+                        child: Container(
+                          width: 260, height: 260,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(
+                                color: isError ? Colors.redAccent : Colors.cyanAccent.withOpacity(0.5),
+                                width: 2
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: isError ? Colors.redAccent.withOpacity(0.2) : Colors.cyanAccent.withOpacity(0.1),
+                                  blurRadius: 20,
+                                  spreadRadius: 5
+                              )
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(28),
+                            child: Stack(
+                              children: [
+                                MobileScanner(
+                                  onDetect: (capture) {
+                                    final List<Barcode> barcodes = capture.barcodes;
+                                    if (barcodes.isNotEmpty) {
+                                      final String? code = barcodes.first.rawValue;
+
+                                      try {
+                                        final decoded = jsonDecode(code!);
+
+                                        // Check if the QR contains student data
+                                        if (decoded.containsKey('id') && decoded.containsKey('name')) {
+                                          Navigator.pop(context); // Close Scanner
+                                          _showStudentDetailsPopup(decoded); // Show Profile
+                                        } else {
+                                          throw Exception("Not a Student QR");
+                                        }
+                                      } catch (e) {
+                                        // --- SHOW ERROR POPUP IMMEDIATELY ---
+                                        _showErrorPopup("Invalid QR Code", "This code does not contain valid student information.");
+                                      }
+                                    }
+                                  },
+                                ),
+                                if (!isError) const _ScannerLine(),
+                                if (isError) const Center(child: Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 60)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 40),
+                      child: IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded, color: Colors.white, size: 40),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  // 1. Function to show the persistent detail popup
+  void _showStudentDetailsPopup(Map<String, dynamic> data) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: "StudentProfile",
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, anim1, anim2) {
+        return Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.all(25),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 20)],
+            ),
+            child: Material(
+              color: Colors.white,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Color(0xFFE3F2FD),
+                    child: Icon(Icons.person, size: 50, color: Color(0xFF005A9C)),
+                  ),
+                  const SizedBox(height: 15),
+                  Text(
+                    data['name']?.toUpperCase() ?? "UNKNOWN",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF005A9C)),
+                  ),
+                  const Text("VERIFIED STUDENT", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                  const Divider(height: 30),
+
+                  // Only the necessary details
+                  _infoRow(Icons.badge_outlined, "Student ID", data['id']),
+                  const SizedBox(height: 10),
+                  _infoRow(Icons.school_outlined, "Programme", data['programme']),
+
+                  const SizedBox(height: 25),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF005A9C),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                    child: const Text("CLOSE PROFILE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return ScaleTransition(scale: anim1, child: child);
+      },
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, String? value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.grey),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                Text(value ?? "N/A", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+  void _showErrorPopup(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(Icons.error_outline, color: Colors.red, size: 50),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message, textAlign: TextAlign.center),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("TRY AGAIN", style: TextStyle(color: Color(0xFF005A9C), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScannerLine extends StatefulWidget {
+  const _ScannerLine();
+
+  @override
+  State<_ScannerLine> createState() => _ScannerLineState();
+}
+
+class _ScannerLineState extends State<_ScannerLine> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            Positioned(
+              top: _controller.value * 240, // Moves line up and down
+              left: 10,
+              right: 10,
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      Colors.cyanAccent.withOpacity(0.8),
+                      Colors.transparent,
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.cyanAccent.withOpacity(0.5),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ScannerBackgroundPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. Draw Background Grid Lines
+    final linePaint = Paint()
+      ..color = Colors.cyanAccent.withOpacity(0.08) // Increased visibility
+      ..strokeWidth = 0.5;
+
+    final thickLinePaint = Paint()
+      ..color = Colors.cyanAccent.withOpacity(0.12)
+      ..strokeWidth = 1.2;
+
+    const double step = 30;
+
+    for (double i = 0; i < size.width; i += step) {
+      // Every 3rd line is thicker for a "Graph Paper" look
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), (i / step) % 3 == 0 ? thickLinePaint : linePaint);
+    }
+
+    for (double i = 0; i < size.height; i += step) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), (i / step) % 3 == 0 ? thickLinePaint : linePaint);
+    }
+
+    // 2. Add Glowing Dots at intersections
+    final dotPaint = Paint()
+      ..color = Colors.cyanAccent.withOpacity(0.3)
+      ..style = PaintingStyle.fill;
+
+    for (double x = 0; x < size.width; x += step * 3) {
+      for (double y = 0; y < size.height; y += step * 3) {
+        canvas.drawCircle(Offset(x, y), 1.5, dotPaint);
+      }
+    }
+
+    // 3. Subtle Radial Gradient Overlay
+    final gradientPaint = Paint()
+      ..shader = RadialGradient(
+        center: Alignment.center,
+        radius: 0.8,
+        colors: [
+          Colors.transparent,
+          const Color(0xFF0D1117).withOpacity(0.8), // Fades to the background color at edges
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), gradientPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lumina_mobile_application/show_qr_profile.dart';
 import 'package:lumina_mobile_application/staff_create_quiz.dart';
 import 'package:lumina_mobile_application/staff_dashboard_quiz.dart';
 import 'package:lumina_mobile_application/staff_directory.dart';
@@ -61,6 +62,7 @@ class CampusApp extends StatelessWidget {
           final student = ModalRoute.of(context)!.settings.arguments as Student;
           return const StudentDashboard();
         },
+        '/show_qr_profile': (context) => const ShowQRPage(),
         '/view_user': (context) => const ViewUserPage(title: 'Student Management',),
         '/register_student': (context) => const RegisterStudentPage(),
         '/profile': (context) => const ProfilePage(),
