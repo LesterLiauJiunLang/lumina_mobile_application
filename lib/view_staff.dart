@@ -62,6 +62,15 @@ class _ViewStaffPageState extends State<ViewStaffPage> {
 
     if (confirmDelete) {
       try {
+
+        // Announcement Created_By
+        // AttendanceSession CreatedBy
+        // Course Staff_ID
+        // Clean up tables that reference this Staff ID
+        await supabase.from('Announcement').delete().eq('Created_By', staffId);
+        await supabase.from('AttendanceSession').delete().eq('CreatedBy', staffId);
+        await supabase.from('Course').delete().eq('Staff_ID', staffId);
+
         await supabase.from('Staff').delete().eq('ID', staffId);
         setState(() {});
         if (mounted) {

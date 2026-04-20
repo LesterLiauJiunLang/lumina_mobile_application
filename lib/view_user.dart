@@ -72,6 +72,16 @@ class _ViewUserPageState extends State<ViewUserPage> {
 
     if (confirmDelete) {
       try {
+        // AttendanceRecord, Student_ID
+        // Enrollment Student_ID
+        // attempts, student_id
+        // personal_events, student_id
+        // 1. Delete from all tables where Student_ID is a Foreign Key
+        // Order usually doesn't matter among these, as long as they all happen before Step 2.
+        await supabase.from('AttendanceRecord').delete().eq('Student_ID', student.id);
+        await supabase.from('Enrollment').delete().eq('Student_ID', student.id);
+        await supabase.from('attempts').delete().eq('student_id', student.id);
+        await supabase.from('personal_events').delete().eq('student_id', student.id);
         await supabase.from('Student').delete().eq('ID', student.id);
 
         setState(() {}); // Refresh list
