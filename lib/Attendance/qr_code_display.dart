@@ -11,6 +11,7 @@ class QRCodeDisplay extends StatefulWidget {
   final String? staffId;
   final String section;
   final bool sendToEmail;
+  final String? scheduleId; // Added scheduleId
 
   const QRCodeDisplay({
     super.key,
@@ -19,6 +20,7 @@ class QRCodeDisplay extends StatefulWidget {
     required this.staffId,
     required this.section,
     required this.sendToEmail,
+    this.scheduleId, // Optional for backward compatibility but preferred
   });
 
   @override
@@ -51,25 +53,39 @@ class _QRCodeDisplayState extends State<QRCodeDisplay> {
       final dayName = DateFormat('EEEE').format(now).toUpperCase();
       final todayDate = DateFormat('yyyy-MM-dd').format(now);
 
-      final List<dynamic> scheduleData = await supabase.from('Schedule').select().eq('Course_ID', widget.courseId).eq('DayOfWeek', dayName);
-
       Map<String, dynamic>? currentSlot;
-      
-      for (var slot in scheduleData) {
-        final startTime = _parseTime(slot['StartTime']);
-        final endTime = _parseTime(slot['EndTime']);
-        // Allow generation 30 mins before class starts until it ends
-        final allowFrom = startTime.subtract(const Duration(minutes: 30));
-        
-        if (now.isAfter(allowFrom) && now.isBefore(endTime)) {
-          currentSlot = Map<String, dynamic>.from(slot);
-          break;
+
+      if (widget.scheduleId != null) {
+        // If scheduleId is provided, fetch specifically that session
+        final data = await supabase
+            .from('Schedule')
+            .select()
+            .eq('ID', widget.scheduleId!)
+            .single();
+        currentSlot = Map<String, dynamic>.from(data);
+      } else {
+        // Fallback to time-based detection if no scheduleId is passed
+        final List<dynamic> scheduleData = await supabase
+            .from('Schedule')
+            .select()
+            .eq('Course_ID', widget.courseId)
+            .eq('DayOfWeek', dayName);
+
+        for (var slot in scheduleData) {
+          final startTime = _parseTime(slot['StartTime']);
+          final endTime = _parseTime(slot['EndTime']);
+          final allowFrom = startTime.subtract(const Duration(minutes: 30));
+          
+          if (now.isAfter(allowFrom) && now.isBefore(endTime)) {
+            currentSlot = Map<String, dynamic>.from(slot);
+            break;
+          }
         }
       }
 
       if (currentSlot == null) {
         setState(() { 
-          _error = "Access Denied: No active session found. You can only generate a QR code during scheduled class time."; 
+          _error = "Access Denied: No active session found."; 
           _isGenerating = false; 
         });
         return;
@@ -77,6 +93,7 @@ class _QRCodeDisplayState extends State<QRCodeDisplay> {
 
       _currentSchedule = currentSlot;
 
+      // Check if a session already exists for this specific schedule and today's date
       final existingSession = await supabase
           .from('AttendanceSession')
           .select()
@@ -143,7 +160,7 @@ class _QRCodeDisplayState extends State<QRCodeDisplay> {
           child: _isGenerating
               ? const CircularProgressIndicator()
               : _error != null
-              ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.lock_clock, size: 80, color: Colors.redAccent), const SizedBox(height: 16), const Text('Time Restriction', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)), const SizedBox(height: 12), Text(_error!, textAlign: TextAlign.center), const SizedBox(height: 32), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: _mainBlue, foregroundColor: Colors.white), onPressed: () => Navigator.pop(context), child: const Text('Go Back'))])
+              ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.lock_clock, size: 80, color: Colors.redAccent), const SizedBox(height: 16), const Text('Session Restriction', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)), const SizedBox(height: 12), Text(_error!, textAlign: TextAlign.center), const SizedBox(height: 32), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: _mainBlue, foregroundColor: Colors.white), onPressed: () => Navigator.pop(context), child: const Text('Go Back'))])
               : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             Text(widget.courseName, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _mainBlue), textAlign: TextAlign.center),
             const SizedBox(height: 8),
