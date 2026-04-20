@@ -21,7 +21,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
   final supabase = Supabase.instance.client;
   bool _isLoading = true;
   List<Map<String, dynamic>> _courseAttendance = [];
-  List<Map<String, dynamic>> _todayRegisteredClasses = [];
+  List<Map<String, dynamic>> _todaySessions = []; 
   String? _studentId;
   int _initialTabIndex = 0; 
   
@@ -52,12 +52,12 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
 
   Future<void> _fetchAllData() async {
     if (_studentId == null) return;
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
     await Future.wait([
       _fetchAttendanceOverview(),
       _fetchTodayRegistered(),
     ]);
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _fetchAttendanceOverview() async {
@@ -112,23 +112,48 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
 
   Future<void> _fetchTodayRegistered() async {
     try {
-      final todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final data = await supabase
+      final now = DateTime.now();
+      final todayDate = DateFormat('yyyy-MM-dd').format(now);
+      final dayName = DateFormat('EEEE', 'en_US').format(now).toUpperCase();
+
+      final enrollmentRes = await supabase.from('Enrollment').select('Course_ID').eq('Student_ID', _studentId!);
+      final List courseIds = (enrollmentRes as List).map((e) => e['Course_ID'].toString()).toList();
+
+      if (courseIds.isEmpty) {
+        _todaySessions = [];
+        return;
+      }
+
+      final schedulesRes = await supabase
+          .from('Schedule')
+          .select('*, Course!inner(Name)')
+          .inFilter('Course_ID', courseIds)
+          .eq('DayOfWeek', dayName);
+
+      final recordsRes = await supabase
           .from('AttendanceRecord')
-          .select('*, Session:Session_ID!inner(ID, Date, Course:Course_ID(Name), Schedule:Schedule_ID(StartTime, EndTime, ClassType))')
+          .select('*, Session:Session_ID!inner(ID, Date, Schedule_ID)')
           .eq('Student_ID', _studentId!)
           .eq('Status', 'Present')
           .eq('Session.Date', todayDate);
+      
+      final Set<String> attendedScheduleIds = {
+        for (var r in (recordsRes as List)) r['Session']?['Schedule_ID']?.toString() ?? ""
+      };
 
-      _todayRegisteredClasses = (data as List).map((r) {
-        final session = r['Session'];
+      _todaySessions = (schedulesRes as List).map((sch) {
+        bool isRegistered = attendedScheduleIds.contains(sch['ID'].toString());
         return {
-          'course': session['Course']?['Name'] ?? 'Unknown',
-          'type': session['Schedule']?['ClassType'] ?? 'N/A',
-          'time': '${session['Schedule']?['StartTime'] ?? ""} - ${session['Schedule']?['EndTime'] ?? ""}',
+          'course': sch['Course']?['Name'] ?? 'Unknown',
+          'type': sch['ClassType'] ?? 'N/A',
+          'time': '${sch['StartTime'].toString().substring(0, 5)} - ${sch['EndTime'].toString().substring(0, 5)}',
+          'isRegistered': isRegistered,
         };
       }).toList();
-    } catch (e) { debugPrint('Error today logic: $e'); }
+
+    } catch (e) { 
+      debugPrint('Error today sync: $e'); 
+    }
   }
 
   void _showStatusSnackbar(String message, bool isSuccess) {
@@ -166,7 +191,6 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
       final sessionData = await supabase.from('AttendanceSession').select('ID, Date, Course_ID, Course(Name), Schedule:Schedule_ID(StartTime, EndTime)').eq('QR_Token', token).maybeSingle();
       if (sessionData == null) throw 'Invalid Token';
 
-      // Logical Fix: Check if already registered
       final existingRecord = await supabase
           .from('AttendanceRecord')
           .select('ID')
@@ -174,9 +198,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
           .eq('Student_ID', _studentId!)
           .maybeSingle();
 
-      if (existingRecord != null) {
-        throw 'Registered Already';
-      }
+      if (existingRecord != null) throw 'Registered Already';
 
       final enrollment = await supabase.from('Enrollment').select('ID').eq('Course_ID', sessionData['Course_ID']).eq('Student_ID', _studentId!);
       if ((enrollment as List).isEmpty) throw 'Not Enrolled';
@@ -215,11 +237,14 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 3,
-      initialIndex: _initialTabIndex,
+      initialIndex: _initialTabIndex, 
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Attendance'), backgroundColor: _mainBlue, foregroundColor: Colors.white,
           bottom: const TabBar(labelColor: Colors.white, unselectedLabelColor: Colors.white70, indicatorColor: Colors.white, indicatorWeight: 3, tabs: [Tab(text: 'Today'), Tab(text: 'Register'), Tab(text: 'Overall')]),
+          actions: [
+            IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchAllData)
+          ],
         ),
         body: _isLoading ? const Center(child: CircularProgressIndicator()) : TabBarView(physics: const NeverScrollableScrollPhysics(), children: [_buildTodayTab(), _buildRegisterTab(), _buildOverallTab()]),
       ),
@@ -227,21 +252,32 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with 
   }
 
   Widget _buildTodayTab() {
-    if (_todayRegisteredClasses.isEmpty) return _buildEmptyState('No classes registered today.', icon: Icons.today);
-    return ListView.builder(
-      padding: const EdgeInsets.all(16), itemCount: _todayRegisteredClasses.length,
-      itemBuilder: (context, index) {
-        final session = _todayRegisteredClasses[index];
-        return Card(
-          elevation: 2, margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.check, color: Colors.white)),
-            title: Text(session['course'], style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('${session['type']} • ${session['time']}'),
-            trailing: Text('Registered', style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
-        );
-      },
+    // LOGICAL FIX: ONLY show the class if isRegistered is TRUE for that specific time slot.
+    final registeredOnly = _todaySessions.where((s) => s['isRegistered'] == true).toList();
+
+    if (registeredOnly.isEmpty) {
+      return _buildEmptyState('No registered attendance for today yet.', icon: Icons.today);
+    }
+    
+    return RefreshIndicator(
+      onRefresh: _fetchAllData,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16), itemCount: registeredOnly.length,
+        itemBuilder: (context, index) {
+          final session = registeredOnly[index];
+          return Card(
+            elevation: 2, 
+            margin: const EdgeInsets.only(bottom: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.check, color: Colors.white)),
+              title: Text(session['course'], style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('${session['type']} • ${session['time']}'),
+              trailing: const Text('Registered', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 10)),
+            ),
+          );
+        },
+      ),
     );
   }
 

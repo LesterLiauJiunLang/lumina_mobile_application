@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:math';
 
 class ManualAttendanceSheet extends StatefulWidget {
   final String sessionName;
   final String courseId;
   final String? existingSessionId;
+  final String? scheduleId; 
 
   const ManualAttendanceSheet({
     super.key,
     required this.sessionName,
     required this.courseId,
     this.existingSessionId,
+    this.scheduleId,
   });
 
   @override
@@ -42,17 +45,44 @@ class _ManualAttendanceSheetState extends State<ManualAttendanceSheet> {
         _sessionId = widget.existingSessionId;
       } else {
         final today = DateTime.now().toIso8601String().split('T')[0];
-        final existingSessions = await supabase.from('AttendanceSession').select('ID').eq('Course_ID', widget.courseId).eq('Date', today).limit(1);
-        if (existingSessions.isNotEmpty) {
+        var query = supabase.from('AttendanceSession').select('ID').eq('Course_ID', widget.courseId).eq('Date', today);
+        if (widget.scheduleId != null) {
+          query = query.eq('Schedule_ID', widget.scheduleId!);
+        }
+        final existingSessions = await query.limit(1);
+
+        if ((existingSessions as List).isNotEmpty) {
           _sessionId = existingSessions[0]['ID'];
         } else {
-          final newSession = await supabase.from('AttendanceSession').insert({'Course_ID': widget.courseId, 'Date': today, 'QR_Token': 'MANUAL'}).select().single();
+          // LOGICAL FIX: Generate a real 6-digit token instead of "MANUAL"
+          final randomToken = List.generate(6, (index) => Random().nextInt(10)).join();
+          
+          final newSession = await supabase.from('AttendanceSession').insert({
+            'Course_ID': widget.courseId, 
+            'Date': today, 
+            'QR_Token': randomToken,
+            'Schedule_ID': widget.scheduleId,
+          }).select().single();
           _sessionId = newSession['ID'];
         }
       }
 
       final enrollmentData = await supabase.from('Enrollment').select('Student(ID, Name, Programme, Faculty, TutorialGroup)').eq('Course_ID', widget.courseId);
-      final List enrolledStudents = (enrollmentData as List).map((e) => e['Student']).toList();
+      final List enrolledData = enrollmentData as List;
+
+      final Set<String> uniqueStudentIds = {};
+      final List<Map<String, dynamic>> uniqueEnrolledStudents = [];
+
+      for (var entry in enrolledData) {
+        final student = entry['Student'];
+        if (student != null) {
+          final String sId = student['ID'].toString();
+          if (!uniqueStudentIds.contains(sId)) {
+            uniqueStudentIds.add(sId);
+            uniqueEnrolledStudents.add(Map<String, dynamic>.from(student));
+          }
+        }
+      }
 
       final recordsData = await supabase.from('AttendanceRecord').select('Student_ID, Status').eq('Session_ID', _sessionId!);
       final Map<String, String> attendanceMap = { for (var r in recordsData) r['Student_ID'].toString(): r['Status'].toString() };
@@ -75,7 +105,7 @@ class _ManualAttendanceSheetState extends State<ManualAttendanceSheet> {
       }
 
       setState(() {
-        _students = enrolledStudents.map((s) {
+        _students = uniqueEnrolledStudents.map((s) {
           final studentId = s['ID'].toString();
           final currentStatus = attendanceMap[studentId] ?? 'Absent';
           int otherPresentCount = studentPresentCounts[studentId] ?? 0;
@@ -194,7 +224,6 @@ class _ManualAttendanceSheetState extends State<ManualAttendanceSheet> {
 
     try { 
       if (newStatus == 'Present') {
-        // MARK AS PRESENT: Create or Update record
         await supabase.from('AttendanceRecord').upsert({ 
           'Session_ID': _sessionId, 
           'Student_ID': studentId, 
@@ -202,7 +231,6 @@ class _ManualAttendanceSheetState extends State<ManualAttendanceSheet> {
           'MarkedAt': DateTime.now().toIso8601String() 
         });
       } else {
-        // REVOKE: Delete record from database so student is truly Absent
         await supabase.from('AttendanceRecord')
             .delete()
             .eq('Session_ID', _sessionId!)

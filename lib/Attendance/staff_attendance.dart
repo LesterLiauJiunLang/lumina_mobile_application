@@ -48,9 +48,8 @@ class _StaffAttendanceDashboardState extends State<StaffAttendanceDashboard> {
   Future<void> _fetchTodaySessions() async {
     try {
       final now = DateTime.now();
-      final dayName = DateFormat('EEEE').format(now).toUpperCase();
+      final dayName = DateFormat('EEEE', 'en_US').format(now).toUpperCase();
 
-      // Fetch today's schedules for this staff, ordered by start time
       final data = await supabase
           .from('Schedule')
           .select('*, Course!inner(*)')
@@ -104,7 +103,7 @@ class _StaffAttendanceDashboardState extends State<StaffAttendanceDashboard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("Today's Sessions", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _mainBlue)),
+                  const Text("Today's Sessions", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF005A9C))),
                   Text(DateFormat('MMM dd, EEE').format(DateTime.now()), style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
                 ],
               ),
@@ -167,23 +166,15 @@ class _StaffAttendanceDashboardState extends State<StaffAttendanceDashboard> {
                                   courseId: course['ID'], 
                                   staffId: _staffId, 
                                   section: sessionData['Section']?.toString() ?? "1", 
-                                  sendToEmail: false,
-                                  scheduleId: sessionData['ID'].toString(),
-                                )));
-                              }),
-                              _buildClassAction(Icons.email_outlined, 'Email Token', () {
-                                Navigator.push(context, MaterialPageRoute(builder: (context) => QRCodeDisplay(
-                                  courseName: course['Name'], 
-                                  courseId: course['ID'], 
-                                  staffId: _staffId, 
-                                  section: sessionData['Section']?.toString() ?? "1", 
-                                  sendToEmail: true,
                                   scheduleId: sessionData['ID'].toString(),
                                 )));
                               }),
                               _buildClassAction(Icons.edit_calendar, 'Manual', () {
+                                // FIXED: Passing scheduleId to ManualAttendanceSheet
                                 Navigator.push(context, MaterialPageRoute(builder: (context) => ManualAttendanceSheet(
-                                  sessionName: '${course['Name']} (${sessionData['ClassType']})', courseId: course['ID'],
+                                  sessionName: '${course['Name']} (${sessionData['ClassType']})', 
+                                  courseId: course['ID'],
+                                  scheduleId: sessionData['ID'].toString(),
                                 )));
                               }),
                             ],
@@ -196,7 +187,7 @@ class _StaffAttendanceDashboardState extends State<StaffAttendanceDashboard> {
               ),
               
               const SizedBox(height: 30),
-              Text("All My Courses", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _mainBlue)),
+              const Text("All My Courses", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF005A9C))),
               const SizedBox(height: 12),
               ..._allMyCourses.map((course) => Card(
                 margin: const EdgeInsets.only(bottom: 10),
